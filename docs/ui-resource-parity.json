@@ -1,0 +1,404 @@
+{
+  "description": "App-owned PNG and BMP resources preserved byte-for-byte from installed APK. The APK compressor may change PNG representation without changing pixels. XML layout/menu values audited semantically against effective API-qualified decoded resources. info version line updated to installed string. Raw serialized economy templates audited separately.",
+  "assets": [
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/button.png",
+      "destination": "app/src/main/res/drawable/button.png",
+      "sha256": "03af675b0df5f84f1e4fa7b2735923ce69e524619748c003fa4a4c100f3b22b5",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/car.bmp",
+      "destination": "app/src/main/res/drawable/car.bmp",
+      "sha256": "e84927d36e4b4475454cda723f4573273c3a55972cab01442c7617eec9722dfa",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/circuit_background.png",
+      "destination": "app/src/main/res/drawable/circuit_background.png",
+      "sha256": "df3b3a9d18a791a7179950a1378b4794ccd1affd7e5a56e5467345099326e730",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/circuit_background_alpha.png",
+      "destination": "app/src/main/res/drawable/circuit_background_alpha.png",
+      "sha256": "7734448278842b5d035757ede14a1fa94bb17d356462ac425f16d97438ed657c",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/coal.bmp",
+      "destination": "app/src/main/res/drawable/coal.bmp",
+      "sha256": "86b0de700e0595037341d5f23e4e17c92ce881a44c6d13586198de0cf0aaef56",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/food.bmp",
+      "destination": "app/src/main/res/drawable/food.bmp",
+      "sha256": "ba8221d18e35bea5e09c91685af8db860ad06e3d50c5f45e07748d4d5ce9ae62",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/ground.bmp",
+      "destination": "app/src/main/res/drawable/ground.bmp",
+      "sha256": "c8228b134773ea002e7013bd00d7018043889025a7c0d6dc729d891416ede469",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/house.bmp",
+      "destination": "app/src/main/res/drawable/house.bmp",
+      "sha256": "e0d2544218e7c7ce13fade8770bf485746499f9fd5d47670f501f4ce30358181",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/icon.bmp",
+      "destination": "app/src/main/res/drawable/icon.bmp",
+      "sha256": "0efd1e494a743d4db84139e502b79010bbd290d586286d64699749f2d63eb349",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/iron.bmp",
+      "destination": "app/src/main/res/drawable/iron.bmp",
+      "sha256": "22520a43b99bf9010d94fe78ff4777cb02bd72bc07104627242f190806d2b431",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/listitem.png",
+      "destination": "app/src/main/res/drawable/listitem.png",
+      "sha256": "c2591919d3a49004cfabb2e15b1e4df70d6049a6ffa3ec1ac80460c82fe41c35",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/master.bmp",
+      "destination": "app/src/main/res/drawable/master.bmp",
+      "sha256": "06414f51ef43e8603d41877a99a91afe755db3b23bb173b2e06d7b26bcda6340",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/shipping.bmp",
+      "destination": "app/src/main/res/drawable/shipping.bmp",
+      "sha256": "8a88878be74f596c2011d35952126700a19564c8819d039283b5068d9938bb70",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/tool.bmp",
+      "destination": "app/src/main/res/drawable/tool.bmp",
+      "sha256": "9c1e5db8b61810850b0779c4fb9436b3e92d65700666fc70800d973f4736df7b",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/topgraphic.png",
+      "destination": "app/src/main/res/drawable/topgraphic.png",
+      "sha256": "59b1dad337744dada13662ef80a71eca218cfb2dd3351f41e8694805a324e68b",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/tree.bmp",
+      "destination": "app/src/main/res/drawable/tree.bmp",
+      "sha256": "e68fad486b94138755af43410822e66e5ddb6ac85ebfed136bc45f1a19f13735",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/truck.bmp",
+      "destination": "app/src/main/res/drawable/truck.bmp",
+      "sha256": "943cac16b25336b358396e499f5c38906a5020ee04505bae206335ecdf53b5c0",
+      "changed": false
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/drawable/window.png",
+      "destination": "app/src/main/res/drawable/window.png",
+      "sha256": "88b82903214285c3a404ddf6a73eaaa238a97c2740b028d365458f3ec3c367aa",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/mipmap-hdpi-v4/ic_launcher.png",
+      "destination": "app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "sha256": "70bb36465e26e8c5b8045207d23d0f1af6d2676a539ef701817ecdf1135888e9",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/mipmap-mdpi-v4/ic_launcher.png",
+      "destination": "app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "sha256": "c34580101d4dbe42483cb21c22e74881ee00ddf6cf887c6ee1ea4d01770bb477",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/mipmap-xhdpi-v4/ic_launcher.png",
+      "destination": "app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "sha256": "f36e20360bff8eebb41d407580c69cb930aa64e62cb81c96f96b6c324e960371",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/mipmap-xxhdpi-v4/ic_launcher.png",
+      "destination": "app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "sha256": "9194eabc186624f19375f41d32891e7277ba4c930205b0de8418370668efa837",
+      "changed": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/mipmap-xxxhdpi-v4/ic_launcher.png",
+      "destination": "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "6459d958bf692e3ff39bc05106533016d64da5183b74de21e74ce122ee9f500f",
+      "changed": true
+    }
+  ],
+  "language_splits": [
+    {
+      "language": "ar",
+      "tables": [
+        {
+          "path": "reference/decoded-split-ar/res/values-ar/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "de",
+      "tables": [
+        {
+          "path": "reference/decoded-split-de/res/values-de/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "en",
+      "tables": [
+        {
+          "path": "reference/decoded-split-en/res/values-en-rAU/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-en/res/values-en-rGB/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-en/res/values-en-rIN/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "es",
+      "tables": [
+        {
+          "path": "reference/decoded-split-es/res/values-es/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-es/res/values-es-rUS/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "fr",
+      "tables": [
+        {
+          "path": "reference/decoded-split-fr/res/values-fr/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-fr/res/values-fr-rCA/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "hi",
+      "tables": [
+        {
+          "path": "reference/decoded-split-hi/res/values-hi/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "in",
+      "tables": [
+        {
+          "path": "reference/decoded-split-in/res/values-in/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "it",
+      "tables": [
+        {
+          "path": "reference/decoded-split-it/res/values-it/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "ja",
+      "tables": [
+        {
+          "path": "reference/decoded-split-ja/res/values-ja/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "ko",
+      "tables": [
+        {
+          "path": "reference/decoded-split-ko/res/values-ko/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "my",
+      "tables": [
+        {
+          "path": "reference/decoded-split-my/res/values-my/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "pt",
+      "tables": [
+        {
+          "path": "reference/decoded-split-pt/res/values-pt/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-pt/res/values-pt-rBR/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-pt/res/values-pt-rPT/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "ru",
+      "tables": [
+        {
+          "path": "reference/decoded-split-ru/res/values-ru/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "th",
+      "tables": [
+        {
+          "path": "reference/decoded-split-th/res/values-th/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "tr",
+      "tables": [
+        {
+          "path": "reference/decoded-split-tr/res/values-tr/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "vi",
+      "tables": [
+        {
+          "path": "reference/decoded-split-vi/res/values-vi/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    },
+    {
+      "language": "zh",
+      "tables": [
+        {
+          "path": "reference/decoded-split-zh/res/values-zh-rCN/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-zh/res/values-zh-rHK/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        },
+        {
+          "path": "reference/decoded-split-zh/res/values-zh-rTW/strings.xml",
+          "count": 21,
+          "app_owned_string_overlaps": []
+        }
+      ]
+    }
+  ],
+  "raw_presets": [
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/raw/big.proto",
+      "destination": "app/src/main/res/raw/big.proto",
+      "size": 3134,
+      "sha256": "f6f5893e089bb88e67d066ef8b2a0e2726e7fb76ee8d1133256294212d23a283",
+      "byte_identical": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/raw/big2.proto",
+      "destination": "app/src/main/res/raw/big2.proto",
+      "size": 3134,
+      "sha256": "87af76cba4e5ce9b40b9e9aef3c2d1a8c645ecd6172ad68730ca9d87e415caeb",
+      "byte_identical": true
+    },
+    {
+      "source": "reference/apk/base.apk",
+      "entry": "res/raw/classic.proto",
+      "destination": "app/src/main/res/raw/classic.proto",
+      "size": 1914,
+      "sha256": "4aa732788fb5f72cbf6aeb8ceb8dc7a56c180533cb7c78adddbef2631d019e7d",
+      "byte_identical": true
+    }
+  ]
+}
