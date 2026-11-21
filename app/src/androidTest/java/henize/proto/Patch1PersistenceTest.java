@@ -108,12 +108,50 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
         final Simulator savedInstance = App.sim;
         finishActivity(); // Real onPause performs the automatic default-slot save.
         assertTrue("Lifecycle must create the default state file", file(testStateFile).length() > 0);
-        App.sim = null; // A successful assertion cannot come from the old in-memory instance.
         launchActivity(); // Real onResume loads the automatic state.
         awaitGraphLoad();
         assertNotSame(savedInstance, App.sim);
         assertSnapshot(765432L, 0.42, 0.06);
         assertTrue("Relaunch must remain paused", activity.simulator.simPaused);
+    }
+
+    public void testBankingAppliesAndRestoresNegativeRates() throws Throwable {
+        runTestOnUiThread(() -> {
+            CentralBankView bankView = activity.bankView;
+            bankView.interestRate.getText().replace(0, bankView.interestRate.length(), "-29");
+            bankView.reserveRate.getText().replace(0, bankView.reserveRate.length(), "-57");
+            bankView.applyBtn.performClick();
+            assertEquals(-0.29, App.sim.access.bank.interestRate, 0.0);
+            assertEquals(-0.57, App.sim.access.bank.reserveRate, 0.0);
+        });
+
+        final Simulator previous = App.sim;
+        finishActivity();
+        launchActivity();
+        assertNotSame(previous, App.sim);
+        runTestOnUiThread(() -> {
+            assertEquals(-0.29, App.sim.access.bank.interestRate, 0.0);
+            assertEquals(-0.57, App.sim.access.bank.reserveRate, 0.0);
+            assertEquals("-29", activity.bankView.interestRate.getText().toString());
+            assertEquals("-57", activity.bankView.reserveRate.getText().toString());
+        });
+    }
+
+    public void testBankingValidatesBothRatesBeforeApplying() throws Throwable {
+        runTestOnUiThread(() -> {
+            CentralBankView bankView = activity.bankView;
+            bankView.interestRate.setText("-100");
+            bankView.reserveRate.setText("100");
+            bankView.applyBtn.performClick();
+            assertEquals(-1.0, App.sim.access.bank.interestRate, 0.0);
+            assertEquals(1.0, App.sim.access.bank.reserveRate, 0.0);
+
+            bankView.interestRate.setText("0");
+            bankView.reserveRate.setText("-0.5");
+            bankView.applyBtn.performClick();
+            assertEquals(-1.0, App.sim.access.bank.interestRate, 0.0);
+            assertEquals(1.0, App.sim.access.bank.reserveRate, 0.0);
+        });
     }
 
     public void testPreferencesPersistAcrossInstances() {

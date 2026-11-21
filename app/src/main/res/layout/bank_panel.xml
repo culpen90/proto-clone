@@ -61,7 +61,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:ems="10"
-                        android:inputType="numberDecimal"
+                        android:inputType="numberDecimal|numberSigned"
                         android:textColor="@android:color/white" />
 
                 </LinearLayout>
@@ -85,7 +85,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:ems="10"
-                        android:inputType="numberDecimal"
+                        android:inputType="numberDecimal|numberSigned"
                         android:textColor="@android:color/white" />
 
                 </LinearLayout>
@@ -106,7 +106,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="A reserve rate of 0% will virtually double the money supply without actually doubling it, though the flow of money will be severily restricted or impossible. You can do the math from here."
+                android:text="Enter whole percentages from -100 to 100. Negative interest reduces outstanding debt and the payment due. At a 0% reserve rate the bank can lend all its reserves. A negative rate lets it lend below zero by up to that percentage of the money supply."
                 android:textColor="@android:color/white" />
 
             <EditText

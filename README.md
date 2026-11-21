@@ -4,6 +4,8 @@ An editable Android reconstruction of **Proto — Economy Simulator 1.99c (Patch
 
 The app simulates autonomous production, trading and transportation across six industries. It includes central banking, interest and reserve rates, currency creation and destruction, taxation, conditional trades, priority orders, graphs, statistics and saved economies.
 
+In the editable build, **Banking** accepts whole percentages from −100% to 100% for both rates. Negative interest credits borrowers’ outstanding debt each payment cycle. A −20% reserve rate lets the bank lend down to a reserve balance of −20% of the money supply.
+
 Download the signed Android APK from [GitHub Releases](https://github.com/culpen90/proto-clone/releases/latest). It installs alongside the original Proto app. If you already use a locally signed build of Proto Clone, back up any saves you want to keep before switching. Android requires matching signatures for an in-place update.
 
 ## Build and run
