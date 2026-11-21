@@ -4,6 +4,8 @@ An editable Android reconstruction of **Proto — Economy Simulator 1.99c (Patch
 
 The app simulates autonomous production, trading and transportation across six industries. It includes central banking, interest and reserve rates, currency creation and destruction, taxation, conditional trades, priority orders, graphs, statistics and saved economies.
 
+Download the signed Android APK from [GitHub Releases](https://github.com/culpen90/proto-clone/releases/latest). It installs alongside the original Proto app. If you already use a locally signed build of Proto Clone, back up any saves you want to keep before switching. Android requires matching signatures for an in-place update.
+
 ## Build and run
 
 Requirements:
@@ -20,7 +22,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am start -n local.proto.clone/local.proto.clone.Launcher
 ```
 
-The application ID is `local.proto.clone`, with launcher label **Proto Clone**. It installs alongside the original `henize.proto_c` application and uses separate private storage. The source build uses a local Android development signing key; it is not a store release.
+The application ID is `local.proto.clone`, with launcher label **Proto Clone**. It installs alongside the original `henize.proto_c` application and uses separate private storage. The debug build uses a local Android development signing key.
 
 ## Source and installed-version fidelity
 

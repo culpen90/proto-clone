@@ -9,8 +9,8 @@ android {
         applicationId 'local.proto.clone'
         minSdk 16
         targetSdk 34
-        versionCode 53
-        versionName '1.99c (Patch 1) Clone'
+        versionCode 54
+        versionName '1.0.0'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     buildFeatures { buildConfig true }
