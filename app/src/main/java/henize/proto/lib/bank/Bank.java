@@ -14,6 +14,7 @@ If not, see https://www.gnu.org/licenses/. */
 package henize.proto.lib.bank;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 
 import henize.proto.lib.sim.Access;
@@ -45,12 +46,24 @@ public class Bank implements Serializable{
     public void act() {
         if(++cycle > 10) {
             cycle = 0;
+            double cycleRate = interestRate;
             for(Account t : accounts) {
                 if(t.debt > 0) {
 
-                    long interest = (long)(t.debt * interestRate);
-                    long payment = (long)(t.debt * minPayPercent) + interest;
-                    //access.bankStats.totalDebt += interest;
+                    long payment = (long)(t.debt * minPayPercent);
+                    if (cycleRate < 0) {
+                        // Credit the principal first. Only the uncovered installment is due in cash.
+                        long credit = rateAmount(t.debt, -cycleRate);
+                        t.debt -= credit;
+                        access.bankStats.totalDebt -= credit;
+                        if (credit >= payment) {
+                            t.freeze = false;
+                            continue;
+                        }
+                        payment -= credit;
+                    } else {
+                        payment += (long)(t.debt * cycleRate);
+                    }
                     long negBal =  payment - t.getBalance();
                     if(negBal > 0) {
                         if(!issueLoanTo(t, negBal)) {
@@ -86,7 +99,21 @@ public class Bank implements Serializable{
         reserve -= amount;
     }
     public boolean enoughReserves(long amount) {
-        return reserve >= amount;
+        // Depositors can use the required reserves as well as any authorized overdraft.
+        return canDrawReserves(amount, Math.min(0, reserveRate));
+    }
+
+    private boolean canDrawReserves(long amount, double rate) {
+        if (amount == 0) return true;
+        if (rate < 0) {
+            long overdraftLimit = rateAmount(access.bankStats.totalCurrency, -rate);
+            return reserve >= amount - overdraftLimit;
+        }
+        return reserve >= amount && (rate == 0 || reserve >= access.bankStats.totalCurrency * rate + amount);
+    }
+
+    private static long rateAmount(long amount, double rate) {
+        return BigDecimal.valueOf(amount).multiply(BigDecimal.valueOf(rate)).longValue();
     }
 
     public boolean issueLoanTo(Account acct, long amount) {
@@ -95,16 +122,9 @@ public class Bank implements Serializable{
         long resReq = amount - account.getBalance();
         creditMeltdown = true; // will turn off if loan success
         if(resReq > 0) {
-            if (reserve >= (access.bankStats.totalCurrency * reserveRate) + resReq) {
-                if (enoughReserves(resReq)) {
-                    removeReserve(resReq);
-                    account.__edit(resReq);
-                } else {
-                    return false;
-                }
-            } else {
-                return false;
-            }
+            if (!canDrawReserves(resReq, reserveRate)) return false;
+            reserve -= resReq;
+            account.__edit(resReq);
         }
         acct.__transfer(account, amount);
         acct.debt +=  amount;

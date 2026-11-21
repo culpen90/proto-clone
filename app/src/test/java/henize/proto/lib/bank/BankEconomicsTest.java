@@ -31,6 +31,12 @@ public class BankEconomicsTest {
         return account;
     }
 
+    private void advancePaymentCycle(Bank bank) {
+        for (int tick = 0; tick < 11; tick++) {
+            bank.act();
+        }
+    }
+
     @Test
     public void taxedSaleAndRefundRestoreBalancesAndTransactionStatistics() {
         Access access = createBank(1000);
@@ -83,6 +89,57 @@ public class BankEconomicsTest {
     }
 
     @Test
+    public void negativeInterestReducesPrincipalAndCashInstallment() {
+        Access access = createBank(100);
+        Account borrower = createAccount(access, 0, Account.TaxCode.TOOL);
+        assertTrue(access.bank.issueLoanTo(borrower, 100));
+        access.bank.interestRate = -0.05;
+
+        advancePaymentCycle(access.bank);
+
+        assertEquals(90, borrower.debt);
+        assertEquals(90, access.bankStats.totalDebt);
+        assertEquals(95, borrower.getBalance());
+        assertEquals(5, access.bank.account.getBalance());
+        assertEquals(100, access.bank.reserve);
+    }
+
+    @Test
+    public void creditExceedingInstallmentReducesDebtWithoutMovingCash() {
+        Access access = createBank(0);
+        createAccount(access, 200, Account.TaxCode.LABOR);
+        Account borrower = createAccount(access, 0, Account.TaxCode.TOOL);
+        assertTrue(access.bank.issueLoanTo(borrower, 100));
+        access.bank.interestRate = -0.29;
+
+        advancePaymentCycle(access.bank);
+
+        assertEquals(71, borrower.debt);
+        assertEquals(71, access.bankStats.totalDebt);
+        assertEquals(100, borrower.getBalance());
+        assertEquals(0, access.bank.account.getBalance());
+        assertEquals(100, access.bank.reserve);
+    }
+
+    @Test
+    public void fullInterestCreditClearsDebtAndUnfreezesCashlessBorrower() {
+        Access access = createBank(100);
+        Account borrower = createAccount(access, 0, Account.TaxCode.TOOL);
+        assertTrue(access.bank.issueLoanTo(borrower, 100));
+        access.taxAccount.__transfer(borrower, 100);
+        borrower.freeze = true;
+        access.bank.interestRate = -1;
+
+        advancePaymentCycle(access.bank);
+
+        assertEquals(0, borrower.debt);
+        assertEquals(0, access.bankStats.totalDebt);
+        assertEquals(0, borrower.getBalance());
+        assertEquals(100, access.bank.reserve);
+        assertFalse(borrower.freeze);
+    }
+
+    @Test
     public void reserveFundedLoanAndRepaymentRestoreReserves() {
         Access access = createBank(0);
         createAccount(access, 10000, Account.TaxCode.LABOR);
@@ -96,6 +153,33 @@ public class BankEconomicsTest {
         assertEquals(600, borrower.getBalance());
         assertEquals(600, access.bankStats.totalDebt);
         assertEquals(10000, access.bankStats.totalCurrency);
+    }
+
+    @Test
+    public void negativeReserveRateAllowsAnOverdraftUpToTheSelectedLimit() {
+        Access access = createBank(0);
+        Account depositor = createAccount(access, 100, Account.TaxCode.LABOR);
+        Account borrower = createAccount(access, 0, Account.TaxCode.TOOL);
+        access.bank.reserveRate = 0;
+        assertFalse(access.bank.issueLoanTo(borrower, 120));
+
+        access.bank.reserveRate = -0.29;
+        assertTrue(access.bank.issueLoanTo(borrower, 120));
+        assertEquals(-20, access.bank.reserve);
+        assertTrue(borrower.send(depositor, 9));
+        assertFalse(borrower.send(depositor, 10));
+        assertTrue(access.bank.issueLoanTo(borrower, 9));
+        assertFalse(access.bank.issueLoanTo(borrower, 1));
+        assertEquals(-29, access.bank.reserve);
+        assertEquals(129, access.bankStats.totalDebt);
+        assertEquals(100, access.bankStats.totalCurrency);
+
+        access.bank.reserveRate = 0;
+        assertFalse(access.bank.issueLoanTo(borrower, 1));
+        access.bank.payOnLoan(borrower, 30);
+        assertEquals(1, access.bank.reserve);
+        assertTrue(access.bank.issueLoanTo(borrower, 1));
+        assertEquals(0, access.bank.reserve);
     }
 
     @Test

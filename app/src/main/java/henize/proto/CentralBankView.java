@@ -47,15 +47,15 @@ public class CentralBankView extends RelativeLayout{
             public void onClick(View view) {
                 App.vibrate();
                 try {
-                    double i = (double)Integer.parseInt(interestRate.getText().toString());
-                    double r = (double)Integer.parseInt(reserveRate.getText().toString());
-                    if(i < 0 || i > 100 || r < 0 || r > 100) {
-                        App.showBasicDialogue("Alert", "Enter a value between 0 and 100");
+                    int interest = Integer.parseInt(interestRate.getText().toString());
+                    int reserve = Integer.parseInt(reserveRate.getText().toString());
+                    if (interest < -100 || interest > 100 || reserve < -100 || reserve > 100) {
+                        App.showBasicDialogue("Alert", "Enter a value between -100 and 100");
                         return;
                     }
-                    App.sim.access.bank.interestRate = (i == 0 ? 0 : i / 100);
-                    App.sim.access.bank.reserveRate = (r == 0 ? 0 : r / 100);
-                } catch (Exception e) {
+                    App.sim.access.bank.interestRate = interest / 100.0;
+                    App.sim.access.bank.reserveRate = reserve / 100.0;
+                } catch (NumberFormatException e) {
                     App.showBasicDialogue("Alert", "Use whole numbers");
                 }
             }
@@ -73,8 +73,8 @@ public class CentralBankView extends RelativeLayout{
                         text += "Bank Reserve    : $" + App.sim.CtD(App.sim.access.bank.reserve) + "\n";
                         text += "Debt Holdings   : $" + App.sim.CtD(App.sim.access.bankStats.totalDebt) + "\n";
                         text += "Minimum Payment : " + Double.toString(App.sim.access.bank.minPayPercent * 100) + "%\n";
-                        text += "Interest Rate   : " + Double.toString(App.sim.access.bank.interestRate * 100) + "%\n";
-                        text += "Reserve Rate    : " + Double.toString(App.sim.access.bank.reserveRate * 100) + "%\n";
+                        text += "Interest Rate   : " + wholePercent(App.sim.access.bank.interestRate) + "%\n";
+                        text += "Reserve Rate    : " + wholePercent(App.sim.access.bank.reserveRate) + "%\n";
                         text += "Insolvency Hits : " + Integer.toString(App.sim.access.bankStats.insolvencyHits) + "\n";
                         if(App.sim.access.bank.fail) {
                             text += "*BANK FAILURE*" + "\n";
@@ -90,8 +90,11 @@ public class CentralBankView extends RelativeLayout{
     }
 
     public void initFromState() {
-        interestRate.setText((Integer.toString((int)(App.sim.access.bank.interestRate * 100))));
-        reserveRate.setText((Integer.toString((int)(App.sim.access.bank.reserveRate * 100))));
+        interestRate.setText(wholePercent(App.sim.access.bank.interestRate));
+        reserveRate.setText(wholePercent(App.sim.access.bank.reserveRate));
     }
 
+    private static String wholePercent(double rate) {
+        return Long.toString(Math.round(rate * 100));
+    }
 }
