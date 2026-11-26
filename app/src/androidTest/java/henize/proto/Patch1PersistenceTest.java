@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.SystemClock;
+import android.support.v7.widget.Toolbar;
 import android.test.InstrumentationTestCase;
 import android.util.Base64;
 
@@ -281,6 +282,34 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
         assertNotSame(savedInstance, App.sim);
         assertSnapshot(765432L, 0.42, 0.06);
         assertTrue("Relaunch must remain paused", activity.simulator.simPaused);
+    }
+
+    public void testGraphMenuAndBackSwitchDisplayedViewWhilePaused() throws Throwable {
+        MainView view = activity.simulator;
+        App.sim.graph.addPoint(new GraphData(10, 20, 30, 40, 50, 60));
+        int points = App.sim.graph.virt_days.size();
+        int cycle = App.sim.access.bank.cycle;
+        runTestOnUiThread(() -> {
+            assertTrue(view.simPaused);
+            assertSame(view.cmain.boarderBitmap, view.puiDesktop.bitmap);
+            Toolbar toolbar = activity.findViewById(android.support.v7.appcompat.R.id.action_bar);
+            toolbar.getMenu().performIdentifierAction(R.id.graph_item, 0);
+        });
+        getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(() -> {
+            assertSame("The graph must be the displayed desktop",
+                    view.cmaingraph.boarderBitmap, view.puiDesktop.bitmap);
+            assertTrue(view.simPaused);
+            activity.onBackPressed();
+        });
+        getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(() -> {
+            assertSame("Back must display the map again", view.cmain.boarderBitmap,
+                    view.puiDesktop.bitmap);
+            assertTrue(view.simPaused);
+            assertEquals(cycle, App.sim.access.bank.cycle);
+            assertEquals(points, App.sim.graph.virt_days.size());
+        });
     }
 
     public void testBankingAppliesAndRestoresNegativeRates() throws Throwable {

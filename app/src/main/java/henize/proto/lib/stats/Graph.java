@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import henize.proto.App;
+import henize.proto.R;
 
 /**
  * Created by ACR411 on 12/17/2017.
@@ -99,9 +100,6 @@ public class Graph implements Serializable {
         }
 
 
-        if (virt_days == null || virt_days.size() == 0) return _graph;
-
-
 /*        if(virt_days.size() > 5000) {
             List<GraphData> compacted = new ArrayList<>();
             for (int i = 0; i < virt_days.size(); i+= i < virt_days.size() - 1250 ? 2 : 1) {
@@ -126,6 +124,11 @@ public class Graph implements Serializable {
 
         c.drawColor(Color.BLACK);
 
+        if (virt_days == null || virt_days.isEmpty()) {
+            _p.setTextSize(width / App.sim.access.config.TEXT_SIZE_DIV);
+            c.drawText(App.activity.getString(R.string.graph_empty), 0, _p.getTextSize(), _p);
+            return _graph;
+        }
 
 
         //Canvas c = new Canvas(_graph);

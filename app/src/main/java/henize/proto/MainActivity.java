@@ -139,7 +139,6 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
         backStack = new Stack<>();
 
         simulator.simPaused = true;
-        simulator.viewMode = MAP;
 
         pref = new StoredPreferences(getPreferences(MODE_PRIVATE), R.id.info_item, true);
     }
@@ -168,9 +167,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
                 int py = (int)event.getY() - (int)prevY;
 
 
-                if(simulator.viewMode == MAP) {
-                 //   simulator.incrementOffsets(px, py);
-                }else if(simulator.viewMode == GRAPH) {
+                if(simulator.getViewMode() == GRAPH) {
                     if(App.sim == null || App.sim.graph == null || App.sim.graph.virt_days == null) return true;
                     //if(Math.abs(px) < 10 ) break;
                     int m = simulator.graphSpread / 1000 + 1;
@@ -199,7 +196,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
                 prevX = event.getX();
                 prevY = event.getY();
                 isScroling = false;
-/*                if(simulator.viewMode == GRAPH) {
+/*                if(simulator.getViewMode() == GRAPH) {
                     simulator.graphSpread = 0;
                     App.sim.graph.instantRefresh = true;
                     //Toast.makeText(this, "Graph Spread is " + (simulator.graphSpread == 0 ? "infinite." : Integer.toString(simulator.graphSpread) + " transactions."), Toast.LENGTH_SHORT).show();
@@ -572,9 +569,9 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
 
             case R.id.map_item: {
                 stop();
+                simulator.setViewMode(MAP);
                 setContentView(simulator);
                 start();
-                simulator.viewMode = MAP;
                 switchToMapOnPlay = false;
                 //adServer.displayMainAd();
                 //App.sim.map.updateAll();
@@ -582,8 +579,8 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
             }
             case R.id.graph_item: {
                 stop();
+                simulator.setViewMode(GRAPH);
                 setContentView(simulator);
-                simulator.viewMode = MainView.GRAPH;
                 start();
                 switchToMapOnPlay = false;
                 Toast.makeText(this, R.string.tapgraphspread, Toast.LENGTH_SHORT).show();
@@ -620,8 +617,8 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
             }
             case R.id.advanced_stats_item: {
                 stop();
+                simulator.setViewMode(MainView.STATS);
                 setContentView(simulator);
-                simulator.viewMode = MainView.STATS;
                 switchToMapOnPlay = false;
                 start();
                 break;

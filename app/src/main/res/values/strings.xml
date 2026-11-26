@@ -48,6 +48,7 @@
 
     <string name="mmap">Map</string>
     <string name="graph">Graph</string>
+    <string name="graph_empty">No transactions yet</string>
     <string name="trade">Trade</string>
     <string name="currency">Currency</string>
     <string name="stats">Statistics</string>

@@ -74,14 +74,13 @@ public class MainView extends SurfaceView implements Runnable {
     public static final int MAP = 1;
     public static final int GRAPH = 2;
     public static final int STATS = 3;
-    public int viewMode;
+    private int viewMode;
 
     public volatile boolean simPaused;
     private volatile int inc;
 
     Container cmap, ctextStats, ctextStats2,cmain, cgraph, cadvstats, cmaingraph, cmainadvstats;
     Desktop puiDesktop;
-    private int previousView = -1;
     float prevX, prevY;
     private boolean isScroling;
     private TextPaint smallTextPaint;
@@ -134,7 +133,7 @@ public class MainView extends SurfaceView implements Runnable {
         puiDesktop.add(cmain, "map");
         puiDesktop.add(cmaingraph, "graph");
         puiDesktop.add(cmainadvstats, "advStats");
-        puiDesktop.select("map");
+        setViewMode(MAP);
 
         cmap.setOnTouch(new puiOnTouch() {
             @Override
@@ -300,7 +299,8 @@ public class MainView extends SurfaceView implements Runnable {
         mapCanvas = cmap.canvas;
         bmpGraph = cgraph.bitmap;
         bmpStats = cadvstats.bitmap;
-        selectViewMode();
+        // Resizing the containers replaces their bitmaps, including the selected one.
+        setViewMode(viewMode);
         ctextStats.zTop();
         ctextStats2.zTop();
 
@@ -356,10 +356,6 @@ public class MainView extends SurfaceView implements Runnable {
            synchronized (this) {
                if (!simPaused) {
                    try {
-                       if(previousView != viewMode) {
-                           selectViewMode();
-                           previousView = viewMode;
-                       }
                        if (henize.proto.lib.sim.Config.FPS_DELAY) {
                            Thread.sleep(16);
                        }
@@ -393,7 +389,12 @@ public class MainView extends SurfaceView implements Runnable {
         App.sim.interrupt();
     }
 
-    protected void selectViewMode() {
+    int getViewMode() {
+        return viewMode;
+    }
+
+    void setViewMode(int viewMode) {
+        this.viewMode = viewMode;
         if(viewMode == MAP) {
             puiDesktop.select("map");
         } else if(viewMode == GRAPH) {
@@ -503,9 +504,9 @@ public class MainView extends SurfaceView implements Runnable {
         if(overlayText == null) overlayText = "";
         String message = overlayText + "\n";
         try {
-            if (App.sim.access.config.fresh) {
+            if (viewMode == MAP && App.sim.access.config.fresh) {
                 message += "\nPRESS PLAY TO START\n\nTAP UNIT ICONS FOR INFORMATION";
-            } else if (App.sim.access.config.computing) {
+            } else if (!simPaused && App.sim.access.config.computing) {
                 message += getResources().getString(R.string.computing);
             }
 /*            if(App.sim.wait_for_t) {
