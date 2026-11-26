@@ -134,7 +134,8 @@ public class Bank implements Serializable{
     }
     public void payOnLoan(Account acct, long amount) {
         long total = access.bankStats.totalCurrency;
-        long resGap = total - reserve;
+        // Legacy economies could retire deposits while keeping their backing reserves.
+        long resGap = reserve >= total ? 0 : total - reserve;
         if(amount <= resGap) {
             acct.__edit(-amount);
             addReserve(amount);

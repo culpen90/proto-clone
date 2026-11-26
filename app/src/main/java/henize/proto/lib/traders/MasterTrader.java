@@ -24,7 +24,6 @@ import henize.proto.lib.commodities.Food;
 import henize.proto.lib.commodities.Iron;
 import henize.proto.lib.commodities.Tool;
 import henize.proto.lib.sim.Access;
-import henize.proto.pathfinder.Coordinate;
 
 /**
  * Created by ACR411 on 12/13/2017.
@@ -63,7 +62,7 @@ public class MasterTrader extends Trader implements Serializable {
         _this.account = access.taxAccount;
         _this.address = access.sim.map.GenerateAddress(7, access.config.msAdd);
 
-        f_buyCond = f_sellCond = t_buyCond = t_sellCond = c_buyCond = c_sellCond = i_buyCond = i_sellCond = "Now at market value";
+        f_buyCond = f_sellCond = t_buyCond = t_sellCond = c_buyCond = c_sellCond = i_buyCond = i_sellCond = MarketOrder.MARKET;
         foodTrader = new FoodTrader(access, "MASTER") {
             boolean init = true;
 
@@ -107,41 +106,7 @@ public class MasterTrader extends Trader implements Serializable {
                     return false;
                 }
                 execSpecialPrioritySystem();
-                if(f_sellCond == null) return false;
-                foodTrader.isStocked = true;
-                switch (f_sellCond){
-                    case "Now at market value": {
-                        foodTrader.setPrice(access.dir.getAveragePriceOf(ComType.FOOD));
-                        break;
-                    }
-                    case "Now at [set price]": {
-                        foodTrader.setPrice(fs_setValue);
-                        break;
-                    }
-                    case "Now at [set price] above market value": {
-                        foodTrader.setPrice(fs_setValue + access.dir.getAveragePriceOf(ComType.FOOD));
-                        break;
-                    }
-                    case "Now at [set value] below market value": {
-                        foodTrader.setPrice(fs_setValue - access.dir.getAveragePriceOf(ComType.FOOD));
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        foodTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.FOOD) < fs_setValue)
-                            foodTrader.isStocked = true;
-                        break;
-
-                    }
-                    case "Price is above [set value]": {
-                        foodTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.FOOD) > fs_setValue)
-                            foodTrader.isStocked = true;
-                        break;
-                    }
-                }
-
-                isStocked = fs_enabled && isStocked && com.size() > 0;
+                MarketOrder.updateOffer(this, ComType.FOOD, fs_enabled, f_sellCond, fs_setValue);
                 sale = false;
                 active = false;
                 foodTrader.stock();
@@ -151,26 +116,10 @@ public class MasterTrader extends Trader implements Serializable {
             @Override
             protected boolean stock() {
 
-                if(!fb_enabled) return false;
-                switch(f_buyCond){
-                    case "Now at market value": {
-                        buy(ComType.FOOD, Integer.MAX_VALUE);
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.FOOD) < fb_setValue) {
-                            buy(ComType.FOOD, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
-                    case "Price is above [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.FOOD) > fb_setValue) {
-                            buy(ComType.FOOD, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
+                if (!fb_enabled || access.sim.autopilot().ownsBuy(ComType.FOOD)) return false;
+                if (MarketOrder.matches(f_buyCond, access.dir.getAveragePriceOf(ComType.FOOD), fb_setValue)) {
+                    buy(ComType.FOOD, Integer.MAX_VALUE);
                 }
-
                 return true;
             }
 
@@ -234,41 +183,7 @@ public class MasterTrader extends Trader implements Serializable {
                     return false;
                 }
                 execSpecialPrioritySystem();
-                if(t_sellCond == null) return false;
-                toolTrader.isStocked = true;
-                switch (t_sellCond){
-                    case "Now at market value": {
-                        toolTrader.setPrice(access.dir.getAveragePriceOf(ComType.TOOL));
-                        break;
-                    }
-                    case "Now at [set price]": {
-                        toolTrader.setPrice(ts_setValue);
-                        break;
-                    }
-                    case "Now at [set value] above market value": {
-                        toolTrader.setPrice(ts_setValue + access.dir.getAveragePriceOf(ComType.TOOL));
-                        break;
-                    }
-                    case "Now at [set value] below market value": {
-                        toolTrader.setPrice(ts_setValue - access.dir.getAveragePriceOf(ComType.TOOL));
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        toolTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.TOOL) < ts_setValue)
-                            toolTrader.isStocked = true;
-                        break;
-
-                    }
-                    case "Price is above [set value]": {
-                        toolTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.TOOL) > ts_setValue)
-                            toolTrader.isStocked = true;
-                        break;
-                    }
-                }
-
-                isStocked = ts_enabled && isStocked && com.size() > 0;
+                MarketOrder.updateOffer(this, ComType.TOOL, ts_enabled, t_sellCond, ts_setValue);
                 sale = false;
                 active = false;
                 toolTrader.stock();
@@ -278,26 +193,10 @@ public class MasterTrader extends Trader implements Serializable {
             @Override
             protected boolean stock() {
 
-                if(!tb_enabled) return false;
-                switch(t_buyCond){
-                    case "Now at market value": {
-                        buy(ComType.TOOL, Integer.MAX_VALUE);
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.TOOL) < tb_setValue) {
-                            buy(ComType.TOOL, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
-                    case "Price is above [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.TOOL) > tb_setValue) {
-                            buy(ComType.TOOL, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
+                if (!tb_enabled || access.sim.autopilot().ownsBuy(ComType.TOOL)) return false;
+                if (MarketOrder.matches(t_buyCond, access.dir.getAveragePriceOf(ComType.TOOL), tb_setValue)) {
+                    buy(ComType.TOOL, Integer.MAX_VALUE);
                 }
-
                 return true;
             }
 
@@ -361,41 +260,7 @@ public class MasterTrader extends Trader implements Serializable {
                     return false;
                 }
                 execSpecialPrioritySystem();
-                if(c_sellCond == null) return false;
-                coalTrader.isStocked = true;
-                switch (c_sellCond){
-                    case "Now at market value": {
-                        coalTrader.setPrice(access.dir.getAveragePriceOf(ComType.COAL));
-                        break;
-                    }
-                    case "Now at [set price]": {
-                        coalTrader.setPrice(cs_setValue);
-                        break;
-                    }
-                    case "Now at [set value] above market value": {
-                        coalTrader.setPrice(cs_setValue + access.dir.getAveragePriceOf(ComType.COAL));
-                        break;
-                    }
-                    case "Now at [set value] below market value": {
-                        coalTrader.setPrice(cs_setValue - access.dir.getAveragePriceOf(ComType.COAL));
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        coalTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.COAL) < cs_setValue)
-                            coalTrader.isStocked = true;
-                        break;
-
-                    }
-                    case "Price is above [set value]": {
-                        coalTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.COAL) > cs_setValue)
-                            coalTrader.isStocked = true;
-                        break;
-                    }
-                }
-
-                isStocked = cs_enabled && isStocked && com.size() > 0;
+                MarketOrder.updateOffer(this, ComType.COAL, cs_enabled, c_sellCond, cs_setValue);
                 sale = false;
                 active = false;
                 coalTrader.stock();
@@ -405,26 +270,10 @@ public class MasterTrader extends Trader implements Serializable {
             @Override
             protected boolean stock() {
 
-                if(!cb_enabled) return false;
-                switch(c_buyCond){
-                    case "Now at market value": {
-                        buy(ComType.COAL, Integer.MAX_VALUE);
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.COAL) < cb_setValue) {
-                            buy(ComType.COAL, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
-                    case "Price is above [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.COAL) > cb_setValue) {
-                            buy(ComType.COAL, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
+                if (!cb_enabled || access.sim.autopilot().ownsBuy(ComType.COAL)) return false;
+                if (MarketOrder.matches(c_buyCond, access.dir.getAveragePriceOf(ComType.COAL), cb_setValue)) {
+                    buy(ComType.COAL, Integer.MAX_VALUE);
                 }
-
                 return true;
             }
 
@@ -488,41 +337,7 @@ public class MasterTrader extends Trader implements Serializable {
                     return false;
                 }
                 execSpecialPrioritySystem();
-                if(i_sellCond == null) return false;
-                ironTrader.isStocked = true;
-                switch (i_sellCond){
-                    case "Now at market value": {
-                        ironTrader.setPrice(access.dir.getAveragePriceOf(ComType.IRON));
-                        break;
-                    }
-                    case "Now at [set price]": {
-                        ironTrader.setPrice(is_setValue);
-                        break;
-                    }
-                    case "Now at [set value] above market value": {
-                        ironTrader.setPrice(is_setValue + access.dir.getAveragePriceOf(ComType.IRON));
-                        break;
-                    }
-                    case "Now at [set value] below market value": {
-                        ironTrader.setPrice(is_setValue - access.dir.getAveragePriceOf(ComType.IRON));
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        ironTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.IRON) < is_setValue)
-                            ironTrader.isStocked = true;
-                        break;
-
-                    }
-                    case "Price is above [set value]": {
-                        ironTrader.isStocked = false;
-                        if(access.dir.getAveragePriceOf(ComType.IRON) > is_setValue)
-                            ironTrader.isStocked = true;
-                        break;
-                    }
-                }
-
-                isStocked = is_enabled && isStocked && com.size() > 0;
+                MarketOrder.updateOffer(this, ComType.IRON, is_enabled, i_sellCond, is_setValue);
                 sale = false;
                 active = false;
                 ironTrader.stock();
@@ -532,26 +347,10 @@ public class MasterTrader extends Trader implements Serializable {
             @Override
             protected boolean stock() {
 
-                if(!ib_enabled) return false;
-                switch(i_buyCond){
-                    case "Now at market value": {
-                        buy(ComType.IRON, Integer.MAX_VALUE);
-                        break;
-                    }
-                    case "Price is below [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.IRON) < ib_setValue) {
-                            buy(ComType.IRON, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
-                    case "Price is above [set value]": {
-                        if(access.dir.getAveragePriceOf(ComType.IRON) > ib_setValue) {
-                            buy(ComType.IRON, Integer.MAX_VALUE);
-                        }
-                        break;
-                    }
+                if (!ib_enabled || access.sim.autopilot().ownsBuy(ComType.IRON)) return false;
+                if (MarketOrder.matches(i_buyCond, access.dir.getAveragePriceOf(ComType.IRON), ib_setValue)) {
+                    buy(ComType.IRON, Integer.MAX_VALUE);
                 }
-
                 return true;
             }
 

@@ -29,6 +29,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import henize.proto.lib.bank.Account;
+import henize.proto.lib.bank.Account.TaxCode;
+import henize.proto.lib.bank.TaxRates;
 import henize.proto.lib.traders.ComType;
 
 /**
@@ -37,6 +39,7 @@ import henize.proto.lib.traders.ComType;
 
 public class CurrencyView extends RelativeLayout  {
 
+    private String lastTaxRate;
     ToggleButton taxButton;
     Button setButton, createButton, destroyButton, stimButton;
     EditText taxRate, currAmount, stimAmount, taxRateList;
@@ -45,7 +48,9 @@ public class CurrencyView extends RelativeLayout  {
     Spinner spinnerSelectTax;  int spinPosTax;
 
     String spinMode = getResources().getString(R.string.currSpinDistLAB);
-    String[] taxCodes = {"% Univeral rate", "% Labor rate", "% Food rate", "% Tool rate",
+    private static final TaxCode[] TAX_CODES = {TaxCode.NULL, TaxCode.LABOR, TaxCode.FOOD, TaxCode.TOOL,
+            TaxCode.COAL, TaxCode.IRON, TaxCode.TRANSPORT};
+    String[] taxCodes = {"% Universal rate", "% Labor rate", "% Food rate", "% Tool rate",
             "% Coal rate", "% Iron rate", "% Transportation rate"};
 
 
@@ -78,12 +83,13 @@ public class CurrencyView extends RelativeLayout  {
     }
 
     private void initButtonListeners(final AlertDialog.Builder builder) {
-        setButton.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(setButton, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 try {
                     double value = Double.parseDouble(taxRate.getText().toString());
                     setTaxRate(spinPosTax, value);
+                    showSelectedRate();
                     refreshTaxList();
                     App.vibrate();
                     checkTaxValues();
@@ -92,7 +98,7 @@ public class CurrencyView extends RelativeLayout  {
                 }
             }
         });
-        stimButton.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(stimButton, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 long amount = 0;
@@ -140,7 +146,7 @@ public class CurrencyView extends RelativeLayout  {
 
             }
         });
-        taxButton.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(taxButton, new OnClickListener() {
             @Override
             public void onClick(View view) {
                     App.vibrate();
@@ -150,7 +156,7 @@ public class CurrencyView extends RelativeLayout  {
             }
         });
 
-         createButton.setOnClickListener(new OnClickListener() {
+         App.onEconomyClick(createButton, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 try{
@@ -168,7 +174,7 @@ public class CurrencyView extends RelativeLayout  {
             }
         });
 
-        destroyButton.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(destroyButton, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 try {
@@ -209,7 +215,7 @@ public class CurrencyView extends RelativeLayout  {
             public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
 
                 spinPosTax = i;
-                taxRate.setText(Double.toString(getTaxRate(spinPosTax)));
+                showSelectedRate();
             }
 
             @Override
@@ -246,85 +252,18 @@ public class CurrencyView extends RelativeLayout  {
     }
 
     private double getTaxRate(int taxCodeID) {
-        switch(taxCodeID) {
-            case 0: {
-                return App.sim.access.config.universalTaxRate;
-            }
-            case 1: {
-                return App.sim.access.config.laborTaxRate;
-            }
-            case 2: {
-                return App.sim.access.config.foodTaxRate;
-            }
-            case 3: {
-                return App.sim.access.config.toolTaxRate;
-            }
-            case 4: {
-                return App.sim.access.config.coalTaxRate;
-            }
-            case 5: {
-                return App.sim.access.config.ironTaxRate;
-            }
-            case 6: {
-                return App.sim.access.config.transportTaxRate;
-            }
-
-        }
-        return 0;
+        return TaxRates.get(App.sim.access.config, TAX_CODES[taxCodeID]);
     }
 
     private void setTaxRate(int taxCodeID, double value) {
-        switch(taxCodeID) {
-            case 0: {
-                App.sim.access.config.universalTaxRate = value;
-                break;
-            }
-            case 1: {
-                App.sim.access.config.laborTaxRate = value;
-                break;
-            }
-            case 2: {
-                App.sim.access.config.foodTaxRate = value;
-                break;
-            }
-            case 3: {
-                App.sim.access.config.toolTaxRate = value;
-                break;
-            }
-            case 4: {
-                App.sim.access.config.coalTaxRate = value;
-                break;
-            }
-            case 5: {
-                App.sim.access.config.ironTaxRate = value;
-                break;
-            }
-            case 6: {
-                App.sim.access.config.transportTaxRate = value;
-                break;
-            }
-        }
+        TaxRates.set(App.sim.access.config, TAX_CODES[taxCodeID], value);
     }
 
     private void checkTaxValues() {
-        boolean overflow = false;
-        for(int i = 0; i <= 6; i++) {
-            if(i == 0){
-                if(getTaxRate(0) > 100) {
-                    overflow = true;
-                    break;
-                }
-                continue;
-            }
-            if(getTaxRate(0) + getTaxRate(i) > 100){
-                overflow = true;
-                break;
-            }
-        }
-        if(overflow) {
+        if (!TaxRates.isValid(App.sim.access.config)) {
             taxButton.setChecked(false);
             App.sim.access.config.collectTax = false;
-            App.showBasicDialogue("Check values", "Total tax rate cannot exceed 100%");
+            App.showBasicDialogue("Check values", "Tax rates must be between 0% and 100%, including the combined rate for each sector.");
         }
     }
 
@@ -333,11 +272,24 @@ public class CurrencyView extends RelativeLayout  {
         for(int i = 0; i <= 6; i++) {
             text +=  Double.toString(getTaxRate(i)) + taxCodes[i] + '\n';
         }
-        taxRateList.setText(text);
+        if (!text.contentEquals(taxRateList.getText())) taxRateList.setText(text);
+    }
+
+    private void showSelectedRate() {
+        lastTaxRate = Double.toString(getTaxRate(spinPosTax));
+        taxRate.setText(lastTaxRate);
+    }
+
+    void refreshTaxPolicy() {
+        String current = Double.toString(getTaxRate(spinPosTax));
+        if (!current.equals(lastTaxRate) && lastTaxRate.contentEquals(taxRate.getText())) taxRate.setText(current);
+        lastTaxRate = current;
+        taxButton.setChecked(App.sim.access.config.collectTax);
+        refreshTaxList();
     }
 
     public void initFromState(){
-        taxRate.setText(Double.toString(App.sim.access.config.universalTaxRate));
+        showSelectedRate();
         taxButton.setChecked(App.sim.access.config.collectTax);
         refreshTaxList();
         checkTaxValues();

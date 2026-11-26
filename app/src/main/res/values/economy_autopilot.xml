@@ -1,11 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="economy_autopilot">Economy autopilot</string>
-    <string name="economy_autopilot_off">Turn on to let autopilot lower bank rates, spend treasury funds, or create currency when the economy stalls.</string>
-    <string name="economy_autopilot_monitoring">Press Play to let autopilot watch for credit problems and stalled trade.</string>
+    <string name="economy_autopilot_off">Let autopilot manage trade, priority orders, taxes, stimulus, currency, bank rates and pricing during play.</string>
+    <string name="economy_autopilot_monitoring">During play, autopilot reviews trade, credit, prices and the treasury.</string>
     <string name="economy_autopilot_easing_credit">Autopilot lowered the bank’s reserve requirement after loans or payments were blocked.</string>
     <string name="economy_autopilot_relieving_debt">Autopilot lowered the interest rate to help borrowers with frozen accounts.</string>
     <string name="economy_autopilot_funding_trade">When trade stalled, autopilot used treasury funds to help workers and farms trade again.</string>
     <string name="economy_autopilot_rebuilding_reserves">Autopilot created currency to rebuild bank reserves after credit and trade stalled.</string>
     <string name="economy_autopilot_limited">Autopilot found trouble but has reached its limits. You can step in or let it check again during play.</string>
+    <string name="economy_autopilot_restoring_reserve_rate">Autopilot raised the reserve requirement as trade recovered.</string>
+    <string name="economy_autopilot_restoring_interest_rate">Autopilot raised the interest rate as trade recovered.</string>
+    <string name="economy_autopilot_retiring_currency">Autopilot retired surplus treasury currency while trade was healthy.</string>
+    <string name="economy_autopilot_stimulating_industry">Autopilot distributed treasury funds to an industry short of cash.</string>
+    <string name="economy_autopilot_buying_stock">Autopilot bought a commodity from a private seller.</string>
+    <string name="economy_autopilot_placing_buy_order">Autopilot placed a buy order that waits for an affordable price.</string>
+    <string name="economy_autopilot_selling_stock">Autopilot offered treasury inventory for sale.</string>
+    <string name="economy_autopilot_cancelling_trade">Autopilot closed a trade order that no longer met its inventory or spending limits.</string>
+    <string name="economy_autopilot_placing_special_order">Autopilot placed a priority order for a commodity in short supply.</string>
+    <string name="economy_autopilot_breaking_orders">Autopilot broke stalled priority obligations so ordinary trade could resume.</string>
+    <string name="economy_autopilot_starting_taxes">Autopilot started collecting taxes to replenish the treasury.</string>
+    <string name="economy_autopilot_suspending_taxes">Autopilot suspended tax collection.</string>
+    <string name="economy_autopilot_adjusting_tax_rates">Autopilot adjusted the tax rates for current market conditions.</string>
+    <string name="economy_autopilot_stabilizing_prices">Autopilot switched to stable pricing after repeated large price changes.</string>
+    <string name="economy_autopilot_restoring_market_prices">Autopilot restored supply-and-demand pricing after prices settled.</string>
+    <string name="priority_pending">Outstanding priority orders</string>
+    <string name="priority_history">Your orders this session</string>
 </resources>

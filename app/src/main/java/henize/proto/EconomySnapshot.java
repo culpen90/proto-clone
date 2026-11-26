@@ -24,6 +24,7 @@ final class EconomySnapshot {
     private static final int MAGIC = 0x50524f54; // PROT
     private static final int VERSION_ORIGINAL = 1;
     private static final int VERSION_AUTOPILOT = 2;
+    private static final int VERSION_AUTOPILOT_OFFERS = 3;
     private static final int MAX_PORTABLE_HISTORY = 1_000_000;
 
     static void write(Simulator sim, OutputStream destination) throws IOException {
@@ -32,9 +33,13 @@ final class EconomySnapshot {
         DataOutputStream out = new DataOutputStream(new CheckedOutputStream(buffer, checksum));
         out.writeInt(MAGIC);
         boolean automated = sim.autopilot().isEnabled();
-        // Manual economies can still be transferred to releases that read version 1.
-        out.writeInt(automated ? VERSION_AUTOPILOT : VERSION_ORIGINAL);
+        int offers = sim.autopilot().ownedOffers();
+        // Keep writing the earlier formats when a save has no managed listings to restore.
+        int version = automated ? VERSION_AUTOPILOT : VERSION_ORIGINAL;
+        if (offers != 0) version = VERSION_AUTOPILOT_OFFERS;
+        out.writeInt(version);
         if (automated) out.writeBoolean(true);
+        if (offers != 0) out.writeByte(offers);
         EconomyModelCodec.write(sim, out);
         if (sim.graph.virt_days.size() > MAX_PORTABLE_HISTORY) {
             throw new IOException("Graph history is too large to export");
@@ -50,10 +55,12 @@ final class EconomySnapshot {
         DataInputStream in = new DataInputStream(new CheckedInputStream(buffer, checksum));
         if (in.readInt() != MAGIC) throw new IOException("This file is not a Proto economy");
         int version = in.readInt();
-        if (version != VERSION_ORIGINAL && version != VERSION_AUTOPILOT) {
+        if (version < VERSION_ORIGINAL || version > VERSION_AUTOPILOT_OFFERS) {
             throw new IOException("Unsupported economy version");
         }
-        boolean automated = version == VERSION_AUTOPILOT && in.readBoolean();
+        boolean automated = version >= VERSION_AUTOPILOT && in.readBoolean();
+        int offers = version >= VERSION_AUTOPILOT_OFFERS ? in.readUnsignedByte() : 0;
+        if (!automated && offers != 0) throw new IOException("Invalid managed trade orders");
         Simulator sim = EconomyModelCodec.read(in);
         int count = in.readInt();
         if (count > MAX_PORTABLE_HISTORY) throw new IOException("Graph history is too large");
@@ -63,6 +70,8 @@ final class EconomySnapshot {
         }
         sim.initNonSerializable();
         sim.autopilot().setEnabled(automated);
+        sim.autopilot().restoreOffers(offers);
+        if (sim.autopilot().ownedOffers() != offers) throw new IOException("Inconsistent managed trade orders");
         return sim;
     }
 

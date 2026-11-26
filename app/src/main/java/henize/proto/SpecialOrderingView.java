@@ -14,7 +14,6 @@ If not, see https://www.gnu.org/licenses/. */
 package henize.proto;
 
 import android.content.Context;
-import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -24,8 +23,10 @@ import android.widget.Spinner;
 import java.util.ArrayList;
 import java.util.List;
 
+import henize.proto.lib.sim.Simulator;
 import henize.proto.lib.traders.ComType;
 import henize.proto.lib.traders.Trader;
+import henize.proto.lib.traders.SpecialOrder;
 
 import static henize.proto.lib.traders.ComType.COAL;
 import static henize.proto.lib.traders.ComType.FOOD;
@@ -38,10 +39,12 @@ import static henize.proto.lib.traders.ComType.TOOL;
 
 public class SpecialOrderingView extends RelativeLayout {
     Spinner comSelect;
-    ComType type;
+    private static final ComType[] GOODS = {FOOD, TOOL, COAL, IRON};
+    private Simulator historyEconomy;
+    private final StringBuilder manualHistory = new StringBuilder();
     EditText quant, list;
     Button order, cancel;
-    private Trader selectedTrader;
+
 
     public SpecialOrderingView(Context context) {
         super(context);
@@ -65,54 +68,65 @@ public class SpecialOrderingView extends RelativeLayout {
 
         comSelect.setAdapter(adapter);
 
-        cancel.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                App.sim.breakPriority();
-                App.vibrate();
-            }
+        list.setFocusable(false);
+        cancel.setOnClickListener(view -> {
+            App.sim.breakPriority();
+            refresh();
+            App.vibrate();
         });
-        order.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-            selectCom(comSelect);
+        order.setOnClickListener(view -> {
             int quantity;
             try {
                 quantity = Integer.parseInt(quant.getText().toString());
-                selectedTrader.buySpecialPriority(type, quantity);
-                App.vibrate();
-                list.setText(list.getText() + selectedTrader.id + " order for " + Integer.toString(quantity)
-                        + " " + type.toString() + "\n");
-            } catch (Exception e) {
-                App.showBasicDialogue("Invalid", "Enter a valid number");
+            } catch (NumberFormatException e) {
+                quantity = 0;
             }
+            ComType type = GOODS[comSelect.getSelectedItemPosition()];
+            if (!App.sim.placePriorityOrder(type, quantity)) {
+                App.showBasicDialogue("Invalid order", "Choose an available commodity and enter a positive quantity.");
+                return;
             }
-
+            resetHistoryIfNeeded();
+            manualHistory.append("MASTER order for ").append(quantity).append(' ').append(type).append('\n');
+            refresh();
+            App.vibrate();
         });
-    }    private void selectCom(Spinner select) {
+    }
 
-        int comSelect = select.getSelectedItemPosition();
-        switch(comSelect) {
-            case 0: {
-                selectedTrader = App.sim.access.master.foodTrader;
-                type = FOOD;
-                break;
-            }
-            case 1: {
-                selectedTrader = App.sim.access.master.toolTrader;
-                type = TOOL;
-                break;
-            }
-            case 2: {
-                selectedTrader = App.sim.access.master.coalTrader;
-                type = COAL;
-                break;
-            }
-            case 3: {
-                selectedTrader = App.sim.access.master.ironTrader;
-                type = IRON;
-                break;
+    private void resetHistoryIfNeeded() {
+        if (historyEconomy != App.sim) {
+            manualHistory.setLength(0);
+            historyEconomy = App.sim;
+        }
+    }
+
+    void refresh() {
+        resetHistoryIfNeeded();
+        StringBuilder orders = new StringBuilder();
+        synchronized (App.sim) {
+            if (!App.sim.specialPriority.empty()) {
+                for (ComType type : GOODS) {
+                    long quantity = 0;
+                    for (Trader seller : App.sim.access.dir.getListFromType(type).getList()) {
+                        quantity += outstanding(seller.specialOrders) + outstanding(seller.processingSpecialOrders);
+                    }
+                    if (quantity > 0) orders.append(type).append(" × ").append(quantity).append('\n');
+                }
             }
         }
+        if (orders.length() > 0) orders.insert(0, getResources().getString(R.string.priority_pending) + "\n");
+        if (manualHistory.length() > 0) {
+            if (orders.length() > 0) orders.append('\n');
+            orders.append(getResources().getString(R.string.priority_history)).append('\n').append(manualHistory);
+        }
+        if (!orders.toString().contentEquals(list.getText())) list.setText(orders);
+    }
+
+    private static long outstanding(List<SpecialOrder> orders) {
+        long quantity = 0;
+        for (SpecialOrder order : orders) {
+            if (order.trader.account == App.sim.access.taxAccount) quantity += order.quant;
+        }
+        return quantity;
     }
 }

@@ -128,6 +128,36 @@ public class ControlView extends RelativeLayout {
                 return R.string.economy_autopilot_funding_trade;
             case REBUILDING_RESERVES:
                 return R.string.economy_autopilot_rebuilding_reserves;
+            case RESTORING_RESERVE_RATE:
+                return R.string.economy_autopilot_restoring_reserve_rate;
+            case RESTORING_INTEREST_RATE:
+                return R.string.economy_autopilot_restoring_interest_rate;
+            case RETIRING_CURRENCY:
+                return R.string.economy_autopilot_retiring_currency;
+            case STIMULATING_INDUSTRY:
+                return R.string.economy_autopilot_stimulating_industry;
+            case BUYING_STOCK:
+                return R.string.economy_autopilot_buying_stock;
+            case PLACING_BUY_ORDER:
+                return R.string.economy_autopilot_placing_buy_order;
+            case SELLING_STOCK:
+                return R.string.economy_autopilot_selling_stock;
+            case CANCELLING_TRADE:
+                return R.string.economy_autopilot_cancelling_trade;
+            case PLACING_SPECIAL_ORDER:
+                return R.string.economy_autopilot_placing_special_order;
+            case BREAKING_ORDERS:
+                return R.string.economy_autopilot_breaking_orders;
+            case STARTING_TAXES:
+                return R.string.economy_autopilot_starting_taxes;
+            case SUSPENDING_TAXES:
+                return R.string.economy_autopilot_suspending_taxes;
+            case ADJUSTING_TAX_RATES:
+                return R.string.economy_autopilot_adjusting_tax_rates;
+            case STABILIZING_PRICES:
+                return R.string.economy_autopilot_stabilizing_prices;
+            case RESTORING_MARKET_PRICES:
+                return R.string.economy_autopilot_restoring_market_prices;
             case LIMITED:
                 return R.string.economy_autopilot_limited;
             case MONITORING:

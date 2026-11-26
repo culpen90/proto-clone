@@ -111,8 +111,8 @@ public class LaborTrader extends Trader implements Serializable {
         if (deathCondition()) {
             die();
             for (SpecialOrder o : processingSpecialOrders) {
+                // Another worker will fill the same obligation and consume its priority token.
                 access.dir.laborOrderForTrade.push(o);
-                access.sim.specialPriority.pop();
             }
             return false;
         } else {

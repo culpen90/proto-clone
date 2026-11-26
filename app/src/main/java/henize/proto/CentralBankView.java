@@ -43,7 +43,7 @@ public class CentralBankView extends RelativeLayout{
         applyBtn = findViewById(R.id.buttonApply);
         initFromState();
 
-        applyBtn.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(applyBtn, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 App.vibrate();
