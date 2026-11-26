@@ -9,8 +9,8 @@ android {
         applicationId 'local.proto.clone'
         minSdk 16
         targetSdk 34
-        versionCode 55
-        versionName '1.1.0'
+        versionCode 56
+        versionName '1.2.0'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     buildFeatures { buildConfig true }
@@ -31,5 +31,6 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:26.1.0'
     implementation 'com.android.support.constraint:constraint-layout:1.0.2'
+    implementation 'org.objenesis:objenesis:3.3'
     testImplementation 'junit:junit:4.13.2'
 }

@@ -36,7 +36,7 @@ import henize.proto.lib.traders.TransportationService;
 public class Directory implements Serializable {
     private DirectoryList labor, food, tool, coal, iron, transportation;
     private List<PriceDecSignalListener> pdl_list = new ArrayList<PriceDecSignalListener>();
-    private Trader[] fullList;
+    private Trader[] fullList; // Retained for the legacy serialized form.
     public List<Trader> firstPriority = new ArrayList<Trader>();
 
     public Stack<SpecialOrder> laborOrderForTrade = new Stack<>();
@@ -131,28 +131,17 @@ public class Directory implements Serializable {
         return null;
     }
     public Trader[] getAll(){
-        if(!hasChanged) return fullList;
-        int count = getCount();
-        fullList = new Trader[count];
-
-        int j = 0, k = 0;
-        DirectoryList dl = getListFromType(ComType.fromInt(k));
-        for(int i = 0; i < count; i++){
-            if(j < dl.getCount()){
-                fullList[i] = dl.getAtIndex(j);
-                j++;
-            }
-            else {
-                if(k <= 5) {
-                    k++;
-                    dl = getListFromType(ComType.fromInt(k));
-                    j = 0;
-                    i--;
-                }
+        // Prices can reorder each industry between calls. Reading the current order must
+        // also be safe while another thread is saving the paused economy.
+        Trader[] traders = new Trader[getCount()];
+        int next = 0;
+        for (ComType type : ComType.values()) {
+            DirectoryList industry = getListFromType(type);
+            for (int i = 0; i < industry.getCount(); i++) {
+                traders[next++] = industry.getAtIndex(i);
             }
         }
-
-        return fullList;
+        return traders;
     }
     public Trader getTraderByID(String ID) {
         Trader[] traders = getAll();

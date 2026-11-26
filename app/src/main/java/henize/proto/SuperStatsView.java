@@ -31,8 +31,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Stack;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import henize.proto.lib.traders.Trader;
 
@@ -40,30 +38,28 @@ import henize.proto.lib.traders.Trader;
 public class SuperStatsView extends RelativeLayout {
     ListView traderList;
     ArrayList<Trader> orderedList;
-    Timer timer2;
+    private final Runnable refreshWhileVisible = new Runnable() {
+        @Override public void run() {
+            refresh();
+            postDelayed(this, 1000);
+        }
+    };
+
     public SuperStatsView(Context context) {
         super(context);
         inflate(context, R.layout.super_stats_panel, this);
         orderedList = new ArrayList<>();
         traderList = findViewById(R.id.traderList);
+    }
 
-        refresh();
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        post(refreshWhileVisible);
+    }
 
-
-        timer2 = new Timer();
-        timer2.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                App.activity.runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        refresh();
-                        }
-                    });
-                };
-
-        }, 0, 1000);
-
+    @Override protected void onDetachedFromWindow() {
+        removeCallbacks(refreshWhileVisible);
+        super.onDetachedFromWindow();
     }
 
     public void refresh() {

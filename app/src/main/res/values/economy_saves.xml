@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_economies">Economies on this device</string>
+    <string name="save_economy">Save</string>
+    <string name="load_economy">Load</string>
+    <string name="automatic_economy">Automatic save</string>
+    <string name="transfer_economy_hint">Export the current economy to keep a backup or open it on another device.</string>
+    <string name="export_economy">Export file</string>
+    <string name="import_economy">Import file</string>
+    <string name="open_economy">Open economy</string>
+    <string name="confirm_economy_import">Enter the transfer key that came with this file. Opening it replaces your current economy. Save a copy first if you want to return to it.</string>
+    <string name="economy_picker_unavailable">Install a file manager that can open or save documents, then try again.</string>
+    <string name="economy_document_unavailable">This file could not be opened. Choose it from another location and try again.</string>
+    <string name="share_economy">Share economy file</string>
+    <string name="economy_share_failed">Could not prepare the economy file for sharing.</string>
+    <string name="economy_key">Transfer key</string>
+    <string name="economy_key_required">Enter the transfer key for this file.</string>
+    <string name="save_economy_key">Save your transfer key</string>
+    <string name="keep_economy_key">You need this key to open the exported economy. Save it separately from the file.</string>
+    <string name="copy_economy_key">Copy key</string>
+    <string name="economy_key_done">Done</string>
+    <string name="economy_key_copied">Copied</string>
+</resources>

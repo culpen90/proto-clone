@@ -26,8 +26,6 @@ import android.widget.ScrollView;
 
 public class BootstrapView extends RelativeLayout {
 
-    Thread t, s;
-
     EditText log;
     ScrollView scv;
     Button terminate;
@@ -62,74 +60,22 @@ public class BootstrapView extends RelativeLayout {
         log.setText(log.getText().append(text += "\n").toString());
     }
 
-    public void initSim() {
-        initSim(null);
-    }
-    public void initSim(final String state) {
-        App.activity.setContentView(_this);
-        if(App.loading) return;
-        if(s != null && s.isAlive()) {
-            try {
-                s.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+    public void initSim(String state) {
+        MainActivity activity = (MainActivity) getContext();
+        activity.stop();
+        if (activity.loadLocalEconomy(state)) {
+            activity.showRestoredEconomy();
         }
-        String s = "";
-        if(state != null) s = " " + state;
-        App.loading = true;
-                log.setText(log.getText().append("loading sim state" + s + "...").toString());
-
-        scv.fullScroll(View.FOCUS_DOWN);
-
-        t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-
-                    App.activity.runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if(state == null) {
-                                App.activity.deserialize();
-                            } else {
-                                App.activity.deserialize(state);
-                            }
-                            App.loading = false;
-                            App.activity.pref.setView(R.id.map_item);
-                            App.activity._resume();
-                            log.setText(log.getText().append("DONE\n").toString());
-
-                        }
-                    });
-                }
-
-        });
-        t.start();
-
     }
 
-    public void saveSim() {
-        saveSim(null);
-    }
-    public void saveSim(final String state) {
-        App.activity.setContentView(_this);
-        if(App.loading || App.saving) return;
-        App.saving = true;
-        s = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                if(state == null) {
-                    App.activity.serialize();
-                } else {
-                    App.activity.serialize(state);
-                }
-                App.activity.stateLoaderView.refresh();
-                App.saving = false;
-            }
-        });
-        s.start();
-        String s = "";
-        if(state != null) s = " " + state;
-        log.setText(log.getText().append(s + " saved...\n").toString());
+    public void saveSim(String state) {
+        MainActivity activity = (MainActivity) getContext();
+        activity.stop();
+        if (activity.saveLocalEconomy(state)) {
+            activity.stateLoaderView.refresh();
+            android.widget.Toast.makeText(activity,
+                    activity.getString(R.string.economy_saved_slot, state),
+                    android.widget.Toast.LENGTH_SHORT).show();
+        }
     }
 }

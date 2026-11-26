@@ -9,16 +9,26 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.SystemClock;
 import android.test.InstrumentationTestCase;
+import android.util.Base64;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.text.DecimalFormat;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import henize.proto.lib.bank.Account;
@@ -78,8 +88,6 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
             }
         });
         assertTrue("Named state must exist on disk", file(namedSlot).length() > 0);
-        assertEquals("Two six-value graph records must be persisted", 96L,
-                file(GRAPH_FILE).length());
 
         runOnMain(new Runnable() {
             @Override public void run() {
@@ -87,6 +95,9 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
                 App.sim.access.bank.reserveRate = 0.99;
                 App.sim.access.config.collectTax = false;
                 App.sim.graph.virt_days.clear();
+                App.sim.graph.addPoint(new GraphData(1, 2, 3, 4, 5, 6));
+                // Another slot saved later must not replace the named slot's history.
+                activity.serialize(testStateFile);
                 activity.deserialize(namedSlot);
             }
         });
@@ -101,6 +112,163 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
         assertNotNull(App.sim.advTextStats);
         assertNull("Patch 1 excludes the runtime formatter from saved state",
                 graphField("df").get(App.sim.graph));
+
+        runOnMain(() -> activity.deserialize(testStateFile));
+        awaitGraphLoad();
+        assertEquals(1, App.sim.graph.virt_days.size());
+        assertEquals(6L, App.sim.graph.virt_days.get(0).transport);
+    }
+
+    public void testLegacyLocalEconomyReadsSharedGraph() throws Exception {
+        populateSnapshot(827L, 0.22, -0.17);
+        try (ObjectOutputStream state = new ObjectOutputStream(context.openFileOutput(
+                namedSlot, Context.MODE_PRIVATE));
+             DataOutputStream graph = new DataOutputStream(context.openFileOutput(
+                     GRAPH_FILE, Context.MODE_PRIVATE))) {
+            state.writeObject(App.sim);
+            for (GraphData point : App.sim.graph.virt_days) {
+                graph.writeLong(point.labor);
+                graph.writeLong(point.food);
+                graph.writeLong(point.tool);
+                graph.writeLong(point.coal);
+                graph.writeLong(point.iron);
+                graph.writeLong(point.transport);
+            }
+        }
+        Simulator before = App.sim;
+        Simulator legacy = LocalEconomyStore.loadLegacy(context, namedSlot);
+        runOnMain(() -> activity.applyEconomy(legacy));
+        awaitGraphLoad();
+        assertNotSame(before, App.sim);
+        assertSnapshot(827L, 0.22, -0.17);
+    }
+
+    public void testEditedAndReplacedPrivateSaveCannotReplaceRunningEconomy() throws Exception {
+        populateSnapshot(1057L, 0.21, -0.09);
+        runOnMain(() -> activity.serialize(namedSlot));
+        byte[] original = readOptionalFile(namedSlot);
+        assertNotNull(original);
+        Simulator active = App.sim;
+        runOnMain(() -> activity.serialize(testStateFile));
+        byte[] otherSlot = readOptionalFile(testStateFile);
+        assertNotNull(otherSlot);
+        try (FileOutputStream out = context.openFileOutput(namedSlot, Context.MODE_PRIVATE)) {
+            out.write(otherSlot);
+        }
+        runOnMain(() -> activity.deserialize(namedSlot));
+        assertSame("A private economy is bound to its saved slot", active, App.sim);
+        for (int offset : new int[] { 0, original.length / 2, original.length - 1 }) {
+            byte[] altered = original.clone();
+            altered[offset] ^= 1;
+            try (FileOutputStream out = context.openFileOutput(namedSlot, Context.MODE_PRIVATE)) {
+                out.write(altered);
+            }
+            runOnMain(() -> activity.deserialize(namedSlot));
+            assertSame(active, App.sim);
+        }
+        try (ObjectOutputStream output = new ObjectOutputStream(context.openFileOutput(
+                namedSlot, Context.MODE_PRIVATE))) {
+            output.writeObject(active);
+        }
+        runOnMain(() -> activity.deserialize(namedSlot));
+        assertSame("A protected slot must refuse a substituted plaintext save", active, App.sim);
+        assertSnapshot(1057L, 0.21, -0.09);
+    }
+
+    public void testPortableEconomyCanResumeWithoutLocalFiles() throws Exception {
+        runOnMain(() -> {
+            for (int i = 0; i < 12; i++) {
+                App.sim.Next();
+                App.sim.map.Tick();
+            }
+            App.sim.interrupt(); // Wait for route calculations as the real pause path does.
+        });
+        populateSnapshot(21346L, -0.14, -0.07);
+        Simulator source = App.sim;
+        long savedCash = source.access.taxAccount.getBalance();
+        int cycle = source.access.bank.cycle;
+        ByteArrayOutputStream file = new ByteArrayOutputStream();
+        String key = EconomyArchive.write(source, file);
+        context.deleteFile(GRAPH_FILE);
+
+        Simulator restored = EconomyArchive.read(new ByteArrayInputStream(file.toByteArray()), key);
+        assertNotSame(source, restored);
+        assertSame("Reading a file must not replace the active economy", source, App.sim);
+        assertSame(restored, restored.access.sim);
+        assertSame(restored.access.taxAccount, restored.access.master.foodTrader.account);
+        assertEquals(savedCash, restored.access.taxAccount.getBalance());
+        assertEquals(-0.14, restored.access.bank.reserveRate, 0.0);
+        assertEquals(-0.07, restored.access.bank.interestRate, 0.0);
+        assertEquals(source.access.dir.getAll().length, restored.access.dir.getAll().length);
+        assertEquals(source.map.traveler_list.size(), restored.map.traveler_list.size());
+        Field randomField = source.map.getClass().getDeclaredField("rnd");
+        randomField.setAccessible(true);
+        assertEquals(((Random) randomField.get(source.map)).nextLong(),
+                ((Random) randomField.get(restored.map)).nextLong());
+        assertEquals(2, restored.graph.virt_days.size());
+        assertEquals(101L, restored.graph.virt_days.get(0).labor);
+        assertEquals(666L, restored.graph.virt_days.get(1).transport);
+        assertEquals(cycle, restored.access.bank.cycle);
+        restored.Next();
+        restored.map.Tick();
+        restored.interrupt();
+        assertEquals((cycle + 1) % 11, restored.access.bank.cycle);
+        assertEquals(cycle, source.access.bank.cycle);
+    }
+
+    public void testPortableImportAuthenticatesWholeArchiveBeforeUse() throws Exception {
+        populateSnapshot(663L, 0.12, -0.2);
+        Simulator before = App.sim;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        String key = EconomyArchive.write(before, output);
+        byte[] bytes = output.toByteArray();
+        ByteArrayOutputStream secondExport = new ByteArrayOutputStream();
+        String other = EconomyArchive.write(before, secondExport);
+        assertFalse(key.equals(other));
+        assertFalse(Arrays.equals(bytes, secondExport.toByteArray()));
+        assertArchiveRejected(bytes, other);
+        assertArchiveRejected(bytes, "");
+        assertArchiveRejected(Arrays.copyOf(bytes, bytes.length - 1), key);
+        assertArchiveRejected(Arrays.copyOf(bytes, bytes.length + 1), key);
+        for (int offset : new int[] { 0, bytes.length / 2, bytes.length - 1 }) {
+            byte[] corrupted = bytes.clone();
+            corrupted[offset] ^= 1;
+            assertArchiveRejected(corrupted, key);
+        }
+        // Even a matching file fingerprint cannot substitute for a valid GCM tag.
+        byte[] alteredTag = bytes.clone();
+        alteredTag[alteredTag.length - 1] ^= 1;
+        int flags = Base64.NO_PADDING | Base64.NO_WRAP | Base64.URL_SAFE;
+        byte[] code = Base64.decode(key, flags);
+        byte[] fingerprint = MessageDigest.getInstance("SHA-256").digest(alteredTag);
+        System.arraycopy(fingerprint, 0, code, code.length - fingerprint.length, fingerprint.length);
+        try {
+            EconomyArchive.read(new ByteArrayInputStream(alteredTag), Base64.encodeToString(code, flags));
+            fail("Modified GCM tag was accepted");
+        } catch (IOException rejected) {
+            assertTrue("AES-GCM must reject the bytes after fingerprint verification",
+                    rejected.getCause() instanceof GeneralSecurityException);
+        }
+        ByteArrayOutputStream plaintext = new ByteArrayOutputStream();
+        EconomySnapshot.write(before, plaintext);
+        try (DataInputStream header = new DataInputStream(
+                new ByteArrayInputStream(plaintext.toByteArray()))) {
+            assertEquals(0x50524f54, header.readInt());
+            assertEquals(1, header.readInt());
+            assertEquals("Version 1 economy schema must remain readable", 0x03cb643dL, header.readLong());
+        }
+        assertArchiveRejected(plaintext.toByteArray(), key);
+        assertSame(before, App.sim);
+        assertSnapshot(663L, 0.12, -0.2);
+    }
+
+    private static void assertArchiveRejected(byte[] bytes, String key) throws Exception {
+        try {
+            EconomyArchive.read(new ByteArrayInputStream(bytes), key);
+            fail("Invalid archive or transfer key was accepted");
+        } catch (IOException expected) {
+            // The UI handles this error without installing the candidate.
+        }
     }
 
     public void testFinishAndRelaunchRestoresDefaultSnapshot() throws Exception {
@@ -226,12 +394,10 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
                 activity.serialize(namedSlot);
             }
         });
-        try (ObjectInputStream input = new ObjectInputStream(context.openFileInput(namedSlot))) {
-            Simulator restored = (Simulator) input.readObject();
-            assertEquals(size, restored.access.config.MAP_SIZE);
-            assertEquals(labor + 1, restored.access.dir.getListFromType(ComType.LABOR).getList().length);
-            assertEquals(10000L, restored.access.bankStats.totalCurrency);
-        }
+        Simulator restored = LocalEconomyStore.load(context, namedSlot);
+        assertEquals(size, restored.access.config.MAP_SIZE);
+        assertEquals(labor + 1, restored.access.dir.getListFromType(ComType.LABOR).getList().length);
+        assertEquals(10000L, restored.access.bankStats.totalCurrency);
     }
 
     private void populateSnapshot(final long amount, final double reserve,
