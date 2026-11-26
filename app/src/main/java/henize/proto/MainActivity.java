@@ -510,6 +510,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
         traderView.initFromState();
         currencyView.initFromState();
         bankView.initFromState();
+        controlView.refresh();
         //App.sim.graph.initUIFromState();
         if(menuFullScreen != null && menuSupplyDemand != null) {
             menuSupplyDemand.setChecked(App.sim.access.config.supplyAndDemandEnabled);
@@ -610,6 +611,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
             }
             case R.id.bank_item: {
                 stop();
+                bankView.refreshRates();
                 setContentView(bankView);
                 switchToMapOnPlay = false;
                 start();

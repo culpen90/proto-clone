@@ -30,6 +30,7 @@ import java.util.TimerTask;
 
 public class CentralBankView extends RelativeLayout{
     EditText interestRate, reserveRate, info;
+    private String lastInterest, lastReserve;
     Button applyBtn;
     Timer timer;
 
@@ -47,6 +48,7 @@ public class CentralBankView extends RelativeLayout{
             public void onClick(View view) {
                 App.vibrate();
                 try {
+                    refreshRates();
                     int interest = Integer.parseInt(interestRate.getText().toString());
                     int reserve = Integer.parseInt(reserveRate.getText().toString());
                     if (interest < -100 || interest > 100 || reserve < -100 || reserve > 100) {
@@ -55,6 +57,7 @@ public class CentralBankView extends RelativeLayout{
                     }
                     App.sim.access.bank.interestRate = interest / 100.0;
                     App.sim.access.bank.reserveRate = reserve / 100.0;
+                    initFromState();
                 } catch (NumberFormatException e) {
                     App.showBasicDialogue("Alert", "Use whole numbers");
                 }
@@ -68,6 +71,7 @@ public class CentralBankView extends RelativeLayout{
                 App.activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        refreshRates();
                         String text = "";
                         text += "Bank Balance    : $" + App.sim.CtD(App.sim.access.bank.account.getBalance()) + "\n";
                         text += "Bank Reserve    : $" + App.sim.CtD(App.sim.access.bank.reserve) + "\n";
@@ -90,8 +94,24 @@ public class CentralBankView extends RelativeLayout{
     }
 
     public void initFromState() {
-        interestRate.setText(wholePercent(App.sim.access.bank.interestRate));
-        reserveRate.setText(wholePercent(App.sim.access.bank.reserveRate));
+        lastInterest = wholePercent(App.sim.access.bank.interestRate);
+        lastReserve = wholePercent(App.sim.access.bank.reserveRate);
+        interestRate.setText(lastInterest);
+        reserveRate.setText(lastReserve);
+    }
+
+    void refreshRates() {
+        lastInterest = refreshRate(interestRate, lastInterest, App.sim.access.bank.interestRate);
+        lastReserve = refreshRate(reserveRate, lastReserve, App.sim.access.bank.reserveRate);
+    }
+
+    private static String refreshRate(EditText input, String previous, double rate) {
+        String current = wholePercent(rate);
+        // Autopilot may change one rate while the player is editing the other.
+        if (!current.equals(previous) && previous.contentEquals(input.getText())) {
+            input.setText(current);
+        }
+        return current;
     }
 
     private static String wholePercent(double rate) {
