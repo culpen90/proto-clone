@@ -64,7 +64,8 @@ public final class MarketOrder {
         seller.isStocked = enabled && !seller.com.empty();
     }
 
-    private static long marketBasePrice(Trader seller, ComType type) {
+    /** Base quote used for market-relative offers before the seller adds sales taxes. */
+    public static long marketBasePrice(Trader seller, ComType type) {
         if (!seller.access.config.collectTax) return seller.access.dir.getAveragePriceOf(type);
         long sum = 0;
         int count = 0;

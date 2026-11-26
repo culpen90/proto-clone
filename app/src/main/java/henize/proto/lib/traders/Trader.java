@@ -41,6 +41,8 @@ import static henize.proto.lib.traders.ComType.TRANSPORTATION;
 
 public class Trader implements PriceDecSignalListener, ArrivalNotficationListener, Serializable {
     private static final long serialVersionUID = 7396124988408814013L;
+    private static final int AUTOPILOT_MARKUP_DAMPING = 5;
+    private transient long autopilotMarkupBias;
     public int directory_index;
     public int priority_index;
     protected long price;
@@ -277,19 +279,30 @@ public class Trader implements PriceDecSignalListener, ArrivalNotficationListene
     }
     }
 
+    /** Keep the current markup when autopilot takes over an established market or resumes a save. */
+    public void anchorAutopilotMarkup() {
+        long level = access.bankStats.adj_totalCurrency / access.dir.getCount();
+        autopilotMarkupBias = Math.max(0, priceOffset) - cashMarkup(level, account.getBalance()) / AUTOPILOT_MARKUP_DAMPING;
+    }
+
+    private long cashMarkup(long level, long balance) {
+        if (balance >= level) return 0;
+        long shortfall = level - balance;
+        return (shortfall < 0 ? Long.MAX_VALUE : shortfall) / access.config.OFFSET_DIV;
+    }
+
     protected void useStandardOffsetModel() {
         long level = access.bankStats.adj_totalCurrency / access.dir.getCount();
-        //try removing this
-/*
-        if (!sale) {
-            return;
-        }///////////////
-*/
-
-
-        if (account.getBalance() < level) {
-            targetOffset = Math.abs(level - account.getBalance()) / access.config.OFFSET_DIV;
-        } else if (account.getBalance() > level && targetOffset > 0) {
+        long balance = account.getBalance();
+        if (access.sim.autopilot().isEnabled()) {
+            // Pass through one fifth of subsequent cash-driven changes. Production costs
+            // still set the base price, and the quoted markup moves one cent at a time.
+            long damped = cashMarkup(level, balance) / AUTOPILOT_MARKUP_DAMPING;
+            long bias = Math.min(autopilotMarkupBias, Long.MAX_VALUE - damped);
+            targetOffset = Math.max(0, bias + damped);
+        } else if (balance < level) {
+            targetOffset = cashMarkup(level, balance);
+        } else if (balance > level && targetOffset > 0) {
             targetOffset = 0;
         }
     }

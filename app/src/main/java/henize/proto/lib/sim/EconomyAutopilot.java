@@ -13,7 +13,7 @@ public final class EconomyAutopilot {
         MONITORING, EASING_CREDIT, RELIEVING_DEBT, RESTORING_RESERVE_RATE, RESTORING_INTEREST_RATE,
         FUNDING_TRADE, REBUILDING_RESERVES, RETIRING_CURRENCY, STIMULATING_INDUSTRY,
         BUYING_STOCK, PLACING_BUY_ORDER, SELLING_STOCK, CANCELLING_TRADE, PLACING_SPECIAL_ORDER, BREAKING_ORDERS,
-        STARTING_TAXES, SUSPENDING_TAXES, ADJUSTING_TAX_RATES, STABILIZING_PRICES, RESTORING_MARKET_PRICES,
+        STARTING_TAXES, SUSPENDING_TAXES, ADJUSTING_TAX_RATES, STABILIZING_PRICES,
         LIMITED
     }
 
@@ -28,7 +28,7 @@ public final class EconomyAutopilot {
     private final Access economy;
     private AutopilotTradePolicy tradePolicy = new AutopilotTradePolicy();
     private AutopilotSpecialOrders specialOrders = new AutopilotSpecialOrders();
-    private final AutopilotPricePolicy prices = new AutopilotPricePolicy();
+    private AutopilotPricePolicy prices = new AutopilotPricePolicy();
     private volatile boolean enabled;
     private volatile Status status = Status.MONITORING;
     private int ticks;
@@ -75,7 +75,7 @@ public final class EconomyAutopilot {
         ticks = 0;
         hadCreditPressure = hadFrozenDebt = hadStall = hadHealthyTrade = hadStalledOrder = false;
         tradePolicy = new AutopilotTradePolicy();
-        prices.reset();
+        prices = new AutopilotPricePolicy();
         specialOrders = new AutopilotSpecialOrders();
         status = Status.MONITORING;
     }
@@ -85,6 +85,10 @@ public final class EconomyAutopilot {
         if (ticks == 0) {
             lastTrades = access.bankStats.transactionCount;
             lastFailures = access.bankStats.insolvencyHits;
+            for (Trader trader : access.dir.getAll()) trader.anchorAutopilotMarkup();
+            if (selectStablePricing(access.config)) status = Status.STABILIZING_PRICES;
+            // A fresh economy still has placeholder quotes before its first trades.
+            if (lastTrades > 0) prices.observe(access);
         }
         if (++ticks <= REVIEW_TICKS) return;
         ticks = 1;
@@ -101,14 +105,13 @@ public final class EconomyAutopilot {
         boolean relieveDebt = frozenDebt && hadFrozenDebt;
         boolean restartTrade = stalled && hadStall;
         boolean healthyTrade = access.bankStats.transactionCount > lastTrades && !creditPressure && !frozenDebt;
-        boolean recovered = healthyTrade && hadHealthyTrade;
-        prices.observe(access, healthyTrade);
+        prices.observe(access);
         boolean stalledOrder = stalled && !access.sim.specialPriority.empty();
         Status decision;
         if (stalledOrder && hadStalledOrder && specialOrders.breakStalled(access)) {
             decision = Status.BREAKING_ORDERS;
         } else {
-            decision = intervene(access, failedPayments, easeCredit, relieveDebt, restartTrade, recovered);
+            decision = intervene(access, failedPayments, easeCredit, relieveDebt, restartTrade, healthyTrade);
         }
         hadStalledOrder = stalledOrder && !access.sim.specialPriority.empty();
         if (decision != null) status = decision;
@@ -123,9 +126,10 @@ public final class EconomyAutopilot {
     }
 
     private Status intervene(Access access, boolean failedPayments, boolean easeCredit, boolean relieveDebt,
-                             boolean restartTrade, boolean recovered) {
+                             boolean restartTrade, boolean healthyTrade) {
         Bank bank = access.bank;
         boolean trouble = easeCredit || relieveDebt || restartTrade;
+        boolean recovered = healthyTrade && hadHealthyTrade;
 
         boolean wasTaxing = access.config.collectTax;
         if (AutopilotTaxPolicy.adjust(access, recovered, trouble)) {
@@ -144,11 +148,12 @@ public final class EconomyAutopilot {
             return Status.EASING_CREDIT;
         }
         if (restartTrade && easeCredit && rebuildReserves(access)) return Status.REBUILDING_RESERVES;
-        if (tradePolicy.cancelFilledOffer(access)) return Status.CANCELLING_TRADE;
-        Status pending = tradePolicy.reviewPendingBuy(access, !restartTrade);
+        if (tradePolicy.cancelInvalidOffer(access, !restartTrade, prices)) return Status.CANCELLING_TRADE;
+        Status pending = tradePolicy.reviewPendingBuy(access, !restartTrade, prices);
         if (pending != null) return pending;
+        if (selectStablePricing(access.config)) return Status.STABILIZING_PRICES;
         if (restartTrade) {
-            Status trade = tradePolicy.review(access, false);
+            Status trade = tradePolicy.review(access, false, prices);
             if (trade != null) return trade;
             // Give priority production and sector-wide stimulus a turn between repeated grants.
             if (status != Status.FUNDING_TRADE && fundFoodTrade(access)) return Status.FUNDING_TRADE;
@@ -157,9 +162,11 @@ public final class EconomyAutopilot {
                 return Status.STIMULATING_INDUSTRY;
             if (status == Status.FUNDING_TRADE && fundFoodTrade(access)) return Status.FUNDING_TRADE;
         }
+        if (healthyTrade) {
+            Status trade = tradePolicy.stabilizePrices(access, prices);
+            if (trade != null) return trade;
+        }
         if (recovered) {
-            Status priceChange = prices.adjust(access.config);
-            if (priceChange != null) return priceChange;
             if (retireSurplus(access)) return Status.RETIRING_CURRENCY;
             // Restore ordinary borrowing terms gradually once the bank can support them.
             if (bank.reserve >= access.bankStats.totalCurrency * 0.20) {
@@ -172,9 +179,15 @@ public final class EconomyAutopilot {
                     return Status.RESTORING_INTEREST_RATE;
                 }
             }
-            return tradePolicy.review(access, true);
+            return tradePolicy.review(access, true, prices);
         }
         return trouble ? Status.LIMITED : null;
+    }
+
+    private static boolean selectStablePricing(Config config) {
+        if (!config.supplyAndDemandEnabled) return false;
+        config.supplyAndDemandEnabled = false;
+        return true;
     }
 
     private static boolean retireSurplus(Access access) {

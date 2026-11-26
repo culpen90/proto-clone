@@ -6,8 +6,9 @@ import org.junit.Test;
 
 import henize.proto.App;
 import henize.proto.lib.bank.Account;
+import henize.proto.lib.commodities.Coal;
+import henize.proto.lib.commodities.Food;
 import henize.proto.lib.map.Traveler;
-import henize.proto.lib.stats.GraphData;
 import henize.proto.lib.traders.ComType;
 import henize.proto.lib.traders.Trader;
 import henize.proto.pathfinder.Coordinate;
@@ -50,10 +51,43 @@ public class EconomyAutopilotTest {
         access.taxAccount.__transfer(access.bank.account, access.bank.account.getBalance());
     }
 
-    private void tradeAtPrice(long price) {
+    private void reviewWithTrade() {
         access.bankStats.transactionCount++;
-        sim.graph.addPoint(new GraphData(1, price, price, price, price, 1));
         observe(REVIEW_TICKS);
+    }
+
+    @Test public void oneCentMoveMattersForCheapGoodsAndFallsWithinTheBandForExpensiveGoods() {
+        AutopilotPricePolicy prices = new AutopilotPricePolicy();
+        for (Trader mine : access.dir.getListFromType(ComType.IRON).getList()) mine.priceOffset = 99;
+        prices.observe(access);
+        for (Trader farm : access.dir.getListFromType(ComType.FOOD).getList()) farm.priceOffset++;
+        for (Trader mine : access.dir.getListFromType(ComType.IRON).getList()) mine.priceOffset++;
+        prices.observe(access);
+        assertEquals(1.0, prices.pressure(ComType.FOOD), 0);
+        assertEquals(0.0, prices.pressure(ComType.IRON), 0);
+    }
+
+    @Test public void autopilotSoftensCashDrivenWageChangesWithoutResettingExistingQuotes() {
+        Trader worker = access.dir.getListFromType(ComType.LABOR).getAtIndex(0);
+        access.bankStats.adj_totalCurrency = (long) access.dir.getCount() * 1000;
+        access.config.supplyAndDemandEnabled = false;
+        worker.act();
+        long manualTarget = worker.targetOffset;
+        assertEquals(100, manualTarget);
+        worker.priceOffset = 60;
+        pilot.setEnabled(true);
+        observe(1);
+        worker.act();
+        assertEquals(60, worker.targetOffset);
+        assertEquals(60, worker.priceOffset);
+        access.bankStats.adj_totalCurrency *= 2;
+        worker.act();
+        assertEquals(80, worker.targetOffset); // One fifth of the 100-cent increase.
+        assertEquals(61, worker.priceOffset);
+        pilot.setEnabled(false);
+        worker.act();
+        assertEquals(2 * manualTarget, worker.targetOffset);
+        assertEquals(62, worker.priceOffset);
     }
 
     @Test public void recoveredMarketRestoresBankTermsOneRateAtATime() {
@@ -62,30 +96,64 @@ public class EconomyAutopilotTest {
         access.bank.interestRate = 0.05;
         pilot.setEnabled(true);
         observe(1);
-        tradeAtPrice(300);
-        assertEquals(MONITORING, pilot.getStatus());
-        tradeAtPrice(300);
+        reviewWithTrade();
+        assertEquals(STABILIZING_PRICES, pilot.getStatus());
+        reviewWithTrade();
         assertEquals(RESTORING_RESERVE_RATE, pilot.getStatus());
         assertEquals(0.20, access.bank.reserveRate, 0);
         assertEquals(0.05, access.bank.interestRate, 0);
-        tradeAtPrice(300);
+        reviewWithTrade();
         assertEquals(RESTORING_INTEREST_RATE, pilot.getStatus());
         assertEquals(0.15, access.bank.interestRate, 0);
     }
 
-    @Test public void repeatedMarketSwingsAndStableTradingSwitchThePriceModel() {
+    @Test public void selectsStablePricingOnFirstTickAndKeepsItThroughCalmTrading() {
         putBankCashInTreasury();
+        observe(2 * REVIEW_TICKS);
+        assertTrue(access.config.supplyAndDemandEnabled);
         pilot.setEnabled(true);
         observe(1);
-        tradeAtPrice(100);
-        tradeAtPrice(150);
-        assertTrue(access.config.supplyAndDemandEnabled);
-        tradeAtPrice(225);
         assertEquals(STABILIZING_PRICES, pilot.getStatus());
         assertFalse(access.config.supplyAndDemandEnabled);
-        for (int i = 0; i < 4; i++) tradeAtPrice(225);
-        assertEquals(RESTORING_MARKET_PRICES, pilot.getStatus());
+        for (int i = 0; i < 8; i++) reviewWithTrade();
+        assertFalse(access.config.supplyAndDemandEnabled);
+        access.config.supplyAndDemandEnabled = true;
+        reviewWithTrade();
+        assertFalse(access.config.supplyAndDemandEnabled);
+        pilot.setEnabled(false);
+        access.config.supplyAndDemandEnabled = true;
+        observe(2 * REVIEW_TICKS);
         assertTrue(access.config.supplyAndDemandEnabled);
+    }
+
+    @Test public void priceInterventionsStartOnOneHealthyReviewAndPrecedeRateRestoration() {
+        putBankCashInTreasury();
+        access.bank.reserveRate = 0.10;
+        access.bankStats.transactionCount = 1; // An established market when autopilot takes over.
+        for (int i = 0; i < access.config.MIN_FOOD_SELL; i++) {
+            access.master.foodTrader.com.push(new Food(access.comStats));
+        }
+        access.master.coalTrader.com.push(new Coal(access.comStats));
+        pilot.setEnabled(true);
+        observe(1);
+        for (Trader farm : access.dir.getListFromType(ComType.FOOD).getList()) {
+            if (farm.account != access.taxAccount) farm.priceOffset = 99;
+        }
+        reviewWithTrade();
+        assertEquals(SELLING_STOCK, pilot.getStatus());
+        assertTrue(access.master.fs_enabled);
+        assertFalse(access.master.cs_enabled);
+
+        for (Trader mine : access.dir.getListFromType(ComType.COAL).getList()) {
+            if (mine.account != access.taxAccount) mine.priceOffset = 99;
+        }
+        reviewWithTrade(); // Two healthy windows also qualify the bank for a rate increase.
+        assertEquals(SELLING_STOCK, pilot.getStatus());
+        assertTrue(access.master.cs_enabled);
+        assertEquals(0.10, access.bank.reserveRate, 0);
+        reviewWithTrade();
+        assertEquals(RESTORING_RESERVE_RATE, pilot.getStatus());
+        assertEquals(0.20, access.bank.reserveRate, 0);
     }
 
     @Test public void activeEconomyRetiresOnlySurplusTreasuryCurrency() {
@@ -94,13 +162,13 @@ public class EconomyAutopilotTest {
         long supply = access.bankStats.totalCurrency;
         pilot.setEnabled(true);
         observe(1);
-        tradeAtPrice(100);
+        reviewWithTrade();
         assertEquals(supply, access.bankStats.totalCurrency);
-        tradeAtPrice(100);
+        reviewWithTrade();
         assertEquals(RETIRING_CURRENCY, pilot.getStatus());
         assertEquals(supply - 30_000, access.bankStats.totalCurrency);
         assertEquals(570_000, access.taxAccount.getBalance());
-        for (int i = 0; i < 10; i++) tradeAtPrice(100);
+        for (int i = 0; i < 10; i++) reviewWithTrade();
         assertEquals(500_000, access.bankStats.totalCurrency);
         assertEquals(supply - 500_000, access.bankStats.lostCurrency);
         assertEquals(500_000, access.bank.reserve);
@@ -138,7 +206,7 @@ public class EconomyAutopilotTest {
 
         pilot.setEnabled(true);
         runMarket(REVIEW_TICKS + 1);
-        assertEquals(MONITORING, pilot.getStatus());
+        assertEquals(STABILIZING_PRICES, pilot.getStatus());
         assertEquals(0, access.bankStats.transactionCount);
         runMarket(REVIEW_TICKS);
         assertEquals(EASING_CREDIT, pilot.getStatus());
@@ -224,12 +292,12 @@ public class EconomyAutopilotTest {
         pilot.setEnabled(true);
         sim.map.traveler_list.add(new Traveler(access, sim.map, new Coordinate(1, 1), new Coordinate(2, 2)));
         observe(3 * REVIEW_TICKS + 1);
-        assertEquals(MONITORING, pilot.getStatus());
+        assertEquals(STABILIZING_PRICES, pilot.getStatus());
         sim.map.traveler_list.clear();
         observe(REVIEW_TICKS);
         access.bankStats.transactionCount++;
         observe(REVIEW_TICKS);
-        assertEquals(MONITORING, pilot.getStatus());
+        assertEquals(STABILIZING_PRICES, pilot.getStatus());
         assertEquals(treasury, access.taxAccount.getBalance());
         assertEquals(0.20, access.bank.reserveRate, 0);
     }
