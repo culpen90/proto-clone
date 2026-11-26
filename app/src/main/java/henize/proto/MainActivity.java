@@ -16,6 +16,7 @@ package henize.proto;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Resources;
 import android.os.Vibrator;
@@ -36,13 +37,9 @@ import android.widget.EditText;
 import android.widget.Switch;
 import android.widget.Toast;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
+import android.net.Uri;
+
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.Stack;
 
 import henize.proto.lib.sim.Simulator;
@@ -61,6 +58,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
     CentralBankView bankView;
     SpecialOrderingView specialOrderingView;
     StateLoaderView stateLoaderView;
+    EconomyDocuments economyDocuments;
     //BillingView billingView;
     public BootstrapView bootView;
 
@@ -73,6 +71,10 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
     boolean switchToMapOnPlay;
 
     private boolean appUnlocked;
+    private boolean resumed;
+    private boolean initialLoad = true;
+    private boolean protectUnreadableAutosave;
+    private final EconomyTransfer economyTransfer = new EconomyTransfer(this);
 
     //AdServer adServer;
     StoredPreferences pref;
@@ -89,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        economyDocuments = new EconomyDocuments(this, savedInstanceState);
         Thread.currentThread().setPriority(10);
 
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -101,6 +104,19 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
 
         bootView.initApp();
 
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        economyDocuments.saveInstanceState(state);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (!economyDocuments.receiveResult(requestCode, resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
    public void initUI() {
@@ -203,71 +219,110 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
         }
         return true;
     }
-public void deserialize() {
+    public void deserialize() {
         deserialize(App.stateFile);
-}
-public void deserialize(String stateFile) {
+    }
+
+    public void deserialize(String slot) {
+        loadLocalEconomy(slot);
+    }
+
+    boolean loadLocalEconomy(String slot) {
         try {
-            InputStream is = openFileInput(stateFile);
-            byte[] buff = new byte[is.available()];
-            is.read(buff);
-            is.close();
-
-            is = new ByteArrayInputStream(buff);
-            //read file and convert to object
-            ObjectInputStream in = new ObjectInputStream(is);
-
-            App.sim = (Simulator)in.readObject();
-            in.close();
-            App.sim.initNonSerializable();
-/*            traderView.initUIFromState();
-            currencyView.initUIFromState();*/
-            initUIFromState();
-            App.sim.graph.initFromState();
-
-        } catch (Throwable e) {
-            bootView.log(e.getMessage());
-            pref.setView(R.id.info_item);
-            if(App.sim == null) {
-                App.initSim();
-                bootView.log("Simulation reset.");
-            }
-            Toast.makeText(this, "Check log.", Toast.LENGTH_LONG).show();
+            applyEconomy(LocalEconomyStore.load(this, slot));
+            protectUnreadableAutosave = false;
+            return true;
+        } catch (IOException | ClassNotFoundException | RuntimeException e) {
+            reportSaveError(R.string.economy_load_failed, e);
+            return false;
         }
     }
 
     void serialize() {
         serialize(App.stateFile);
     }
-    void serialize(String stateFile) {
+
+    void serialize(String slot) {
+        saveLocalEconomy(slot);
+    }
+
+    boolean saveLocalEconomy(String slot) {
         try {
-            //save sim state in os output stream.
-            ByteArrayOutputStream os = new ByteArrayOutputStream();
-            ObjectOutputStream out = new ObjectOutputStream(os);
-            out.writeObject(App.sim);
-            //open file and write output stream
-            FileOutputStream fo = openFileOutput(stateFile, MODE_PRIVATE);
-            fo.write(os.toByteArray());
-            fo.close(); os.close();
-            App.sim.graph.saveState();
-        } catch (IOException e) {
-          e.printStackTrace();
+            App.sim.interrupt();
+            LocalEconomyStore.save(this, slot, App.sim);
+            if (App.stateFile.equals(slot)) protectUnreadableAutosave = false;
+            return true;
+        } catch (IOException | RuntimeException e) {
+            reportSaveError(R.string.economy_save_failed, e);
+            return false;
         }
     }
+
+    void applyEconomy(Simulator restored) {
+        Simulator previous = App.sim;
+        try {
+            App.sim = restored;
+            // The file can come from a device with different screen dimensions.
+            if (simulator.scale > 0) {
+                restored.setScale(simulator.scale);
+                restored.map.setFrameSize(20, simulator.height / simulator.scale);
+            }
+            simulator.graphSpread = 0;
+            initUIFromState();
+        } catch (RuntimeException e) {
+            App.sim = previous;
+            initUIFromState();
+            throw e;
+        }
+    }
+
+    void showRestoredEconomy() {
+        pref.setView(R.id.map_item);
+        if (resumed) selectOption(R.id.map_item, true);
+    }
+
+    void reportSaveError(int message, Exception error) {
+        String detail = error.getLocalizedMessage();
+        bootView.log(getString(message) + (detail == null ? "" : " " + detail));
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+    }
+
+    void exportEconomy(Uri destination) {
+        exportEconomy(destination, null);
+    }
+
+    void exportEconomy(Uri destination, Runnable onSuccess) {
+        economyTransfer.exportFile(destination, onSuccess);
+    }
+
+    void importEconomy(Uri source, String key) {
+        economyTransfer.importFile(source, key);
+    }
+
     @Override
     protected void onPause() {
-       super.onPause();
-//       adServer.pause();
-//       //if sim not paused and ad server is not showing ad then pause.
-//       if(!simulator.simPaused && !adServer.isShowing())  {
-//           togglePlayPause();
-//       }
+        resumed = false;
+        turnOffSpeed();
+        stop();
+        if (!protectUnreadableAutosave) serialize();
+        savePrefs();
+        super.onPause();
+    }
 
-       //App.sim.access.config.fresh = !adServer.isShowing();
-       turnOffSpeed();
-       stop();
-       bootView.saveSim();
-       savePrefs();
+    boolean economyTransferBusy() {
+        return economyTransfer.isBusy();
+    }
+
+    boolean isResumedForTransfer() {
+        return resumed;
+    }
+
+    @Override
+    protected void onDestroy() {
+        bankView.timer.cancel();
+        economyTransfer.destroy();
+        economyDocuments.dismissDialogs();
+        super.onDestroy();
     }
 
     private void savePrefs() {
@@ -280,10 +335,21 @@ public void deserialize(String stateFile) {
     @Override
     protected  void onResume() {
         super.onResume();
-        //adServer.resume();
-        //billingView.update();
-        bootView.initSim();
-        //deserialize();
+        resumed = true;
+        if (initialLoad) {
+            initialLoad = false;
+            try {
+                LocalEconomyStore.registerLegacySlots(this);
+                if (getFileStreamPath(App.stateFile).exists()) {
+                    protectUnreadableAutosave = !loadLocalEconomy(App.stateFile);
+                }
+            } catch (IOException e) {
+                protectUnreadableAutosave = true;
+                reportSaveError(R.string.economy_load_failed, e);
+            }
+            pref.setView(R.id.map_item);
+        }
+        _resume();
         TypedValue tv = new TypedValue();
         if (getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true))
         {
@@ -294,11 +360,10 @@ public void deserialize(String stateFile) {
     }
 
     public void _resume() {
-        //adServer.setShowInteruptiveAds(false);
-        selectOption(pref.getView(), true);
-       // adServer.setShowInteruptiveAds(true);
+        selectOption(economyDocuments.isPending() ? R.id.state_item : pref.getView(), true);
         appUnlocked = pref.getUnlocked();
-        start();
+        economyTransfer.onResume();
+        economyDocuments.onEconomyReady();
     }
 
     @Override
@@ -581,10 +646,11 @@ public void deserialize(String stateFile) {
             }
             case R.id.state_item: {
                 pauseSim();
+                turnOffSpeed();
                 stop();
+                stateLoaderView.refresh();
                 setContentView(stateLoaderView);
                 switchToMapOnPlay = true;
-                start();
                 break;
             }
             case R.id.log_item: {
@@ -630,8 +696,7 @@ public void deserialize(String stateFile) {
     }
 
     public void start() {
-        simulator.start();
-
+        if (resumed && !economyTransfer.isBusy() && !simulator.running) simulator.start();
     }
 
     public void stop() {

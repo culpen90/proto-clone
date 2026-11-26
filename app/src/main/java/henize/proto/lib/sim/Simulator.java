@@ -84,7 +84,6 @@ public class Simulator implements TransactionListener, Serializable {
         primary.clear();
         inactive.clear();
         specialPriority.clear();
-        graph.deleteStateFile();
         initSimulator(scale, loadMap, null);
     }
     public void initSimulator(int scale, String loadMap, Config config){

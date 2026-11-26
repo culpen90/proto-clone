@@ -13,72 +13,85 @@ You should have received a copy of the GNU General Public License along with thi
 If not, see https://www.gnu.org/licenses/. */
 package henize.proto;
 
-import android.content.Context;
-import android.content.res.AssetManager;
-import android.view.View;
-import android.widget.*;
-import android.widget.ListAdapter;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ListView;
+import android.widget.RelativeLayout;
 
-import java.text.DateFormat;
+import java.io.File;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
-
-/**
- * Created by ACR411 on 2/19/2020.
- */
+import java.util.Locale;
 
 public class StateLoaderView extends RelativeLayout {
-    ListView stateList;
-    Button save, load;
+    private final MainActivity activity;
+    private final ListView stateList;
+    private final Button load;
+    private String selected;
 
-    String selected;
-    public StateLoaderView(final Context context) {
-        super(context);
-        inflate(context, R.layout.state_loader_panel, this);
-
+    public StateLoaderView(MainActivity activity) {
+        super(activity);
+        this.activity = activity;
+        inflate(activity, R.layout.state_loader_panel, this);
         stateList = findViewById(R.id.stateList);
-        save = findViewById(R.id.saveStateButton);
         load = findViewById(R.id.loadStateButton);
 
+        findViewById(R.id.saveStateButton).setOnClickListener(view -> {
+            App.vibrate();
+            String stamp = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss", Locale.US).format(new Date());
+            String base = "Economy " + stamp;
+            String name = base;
+            for (int copy = 2; activity.getFileStreamPath(name).exists(); copy++) {
+                name = base + " (" + copy + ")";
+            }
+            selected = name;
+            activity.bootView.saveSim(name);
+        });
+        load.setOnClickListener(view -> {
+            if (selected != null) {
+                App.vibrate();
+                activity.bootView.initSim(selected);
+            }
+        });
+        findViewById(R.id.exportEconomyButton).setOnClickListener(view -> {
+            App.vibrate();
+            activity.economyDocuments.chooseExport();
+        });
+        findViewById(R.id.importEconomyButton).setOnClickListener(view -> {
+            App.vibrate();
+            activity.economyDocuments.chooseImport();
+        });
         refresh();
-
-        stateList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                selected = (String)stateList.getItemAtPosition(i);
-                App.vibrate();
-            }
-        });
-
-        save.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Date date = Calendar.getInstance().getTime();
-                DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-                selected = dateFormat.format(date);
-                App.vibrate();
-                App.activity.bootView.saveSim(selected);
-                }
-        });
-
-        load.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if(selected != null) {
-                    App.vibrate();
-                    App.activity.bootView.initSim(selected);
-                }
-            }
-        });
-
     }
 
     public void refresh() {
-        String[] list = App.activity.getFilesDir().list();
+        String[] names = activity.getFilesDir().list((dir, name) ->
+                !name.startsWith(".") && !name.endsWith(".bak") && !name.endsWith(".new")
+                        && !name.equals("dat") && !name.equals("henize.proto.graph")
+                        && new File(dir, name).isFile());
+        if (names == null) names = new String[0];
+        Arrays.sort(names, Collections.reverseOrder());
+        final String[] slots = names;
+        String[] labels = slots.clone();
+        int checked = -1;
+        for (int i = 0; i < slots.length; i++) {
+            if (slots[i].equals(App.stateFile)) {
+                labels[i] = getResources().getString(R.string.automatic_economy);
+            }
+            if (slots[i].equals(selected)) checked = i;
+        }
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, list);
-        stateList.setAdapter(adapter);
+        stateList.setAdapter(new ArrayAdapter<>(activity,
+                android.R.layout.simple_list_item_single_choice, labels));
+        if (checked >= 0) stateList.setItemChecked(checked, true);
+        else selected = null;
+        load.setEnabled(selected != null);
+        stateList.setOnItemClickListener((parent, view, position, id) -> {
+            selected = slots[position];
+            load.setEnabled(true);
+            App.vibrate();
+        });
     }
 }

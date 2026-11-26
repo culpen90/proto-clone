@@ -162,7 +162,9 @@ public class Traveler implements Runnable, Serializable {
 
     private boolean InitPathFinder()
     {
-        if (path_finder == null && curr_torder < transport_order.length - 1)
+        // The pathfinder is transient, but an already calculated route and its current
+        // step are saved. Resume that route until a new leg actually needs calculating.
+        if (path_finder == null && (path == null || initPF) && curr_torder < transport_order.length - 1)
         {
             path_finder = new PathFinder(map.width, map.height,
                     transport_order[curr_torder],

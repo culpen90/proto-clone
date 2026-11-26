@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="economy_saved_slot">Saved %1$s</string>
+    <string name="economy_save_failed">Couldn’t save the economy. See Control → System Log for details.</string>
+    <string name="economy_load_failed">Couldn’t open that saved economy.</string>
+    <string name="economy_exporting">Exporting economy…</string>
+    <string name="economy_importing">Opening economy…</string>
+    <string name="economy_imported">Economy imported. Press Play to continue.</string>
+    <string name="economy_import_failed">Couldn’t open the economy. Check that the file is intact and its transfer key matches.</string>
+    <string name="economy_export_failed">Couldn’t write the economy file. Try another location.</string>
+</resources>

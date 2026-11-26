@@ -14,6 +14,27 @@ import static org.junit.Assert.*;
 
 public class TravelerParityTest {
     @Test
+    public void restoredTravelerContinuesItsExistingRoute() {
+        Access access = new Access();
+        access.config = new Config();
+        Map map = new Map(access, new byte[20][20], 24, null);
+        Coordinate start = new Coordinate(2, 3);
+        Coordinate middle = new Coordinate(3, 3);
+        Coordinate end = new Coordinate(4, 3);
+        Traveler traveler = new Traveler(access, map, start, end);
+        traveler.path = new Coordinate[]{start, middle, end};
+        traveler.curr_step = 1;
+        traveler.loc = middle;
+        traveler.currXOffset = 23;
+
+        traveler.Tick();
+
+        assertSame(end, traveler.loc);
+        assertEquals(2, traveler.curr_step);
+        assertNull(traveler.thread);
+    }
+
+    @Test
     public void everyDirectionMovesOnePixelPerTickAtDifferentScales() throws Exception {
         for (int scale : new int[]{8, 24, 72}) {
             for (int dx = -1; dx <= 1; dx++) {
