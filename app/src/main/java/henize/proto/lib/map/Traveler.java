@@ -370,7 +370,10 @@ public void addListener(ArrivalNotficationListener listener){
         tl_list.remove(listener);
     }
     private void sendNotficationSignal(Traveler sender, ArrivalPoint p){
-        for(ArrivalNotficationListener l : tl_list) l.arrivalNotification(sender, p);
+        // The map unsubscribes on arrival. Finish notifying the other delivery listeners.
+        for (ArrivalNotficationListener listener : new ArrayList<>(tl_list)) {
+            listener.arrivalNotification(sender, p);
+        }
     }
 
     @Override

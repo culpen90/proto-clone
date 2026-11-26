@@ -40,6 +40,7 @@ import static henize.proto.lib.traders.ComType.TRANSPORTATION;
 
 
 public class Trader implements PriceDecSignalListener, ArrivalNotficationListener, Serializable {
+    private static final long serialVersionUID = 7396124988408814013L;
     public int directory_index;
     public int priority_index;
     protected long price;
@@ -347,6 +348,7 @@ public class Trader implements PriceDecSignalListener, ArrivalNotficationListene
      _specOrderQuant = quant;
     }
     public boolean buySpecialPriority(ComType type, int quant){
+     if (quant <= 0) return false;
      DirectoryList l = access.dir.getListFromType(type);
      List<Trader> list = new ArrayList<Trader>();
      for(int i = 0; i < l.getCount(); i++) {
@@ -355,6 +357,7 @@ public class Trader implements PriceDecSignalListener, ArrivalNotficationListene
          }
      }
      int n = list.size();
+     if (n == 0) return false;
      int j = quant / n;
      if(type == LABOR || j == 0) {
          j = 1;
@@ -491,6 +494,13 @@ public class Trader implements PriceDecSignalListener, ArrivalNotficationListene
         if(access.sim.specialPriority.isEmpty()) {
                reset(); //should only exec if orders canceled mid fill.
         }
+    }
+
+    public void cancelPriorityOrders() {
+        _specBuyType = null;
+        specialOrders.clear();
+        processingSpecialOrders.clear();
+        reset();
     }
 
     protected void ranOutOfStock() {

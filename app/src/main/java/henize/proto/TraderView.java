@@ -28,6 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import henize.proto.lib.traders.MasterTrader;
+import henize.proto.lib.traders.MarketOrder;
+import henize.proto.lib.traders.ComType;
 import henize.proto.lib.traders.Trader;
 
 /**
@@ -40,6 +42,7 @@ public class TraderView extends RelativeLayout {
     Button btnOrder, btnCancelBuy, btnSell, btnCancelSell;
     EditText editBuyQuant, editBuyPrice, editSellQuant, editSellPrice, sellOrderDisplay, buyOrderDisplay;
 
+    private static final ComType[] GOODS = {ComType.FOOD, ComType.TOOL, ComType.COAL, ComType.IRON};
     Trader selectedTrader;
 
     public TraderView(Context context) {
@@ -79,11 +82,12 @@ public class TraderView extends RelativeLayout {
     }
 
     private void cancelSellEvent() {
-        btnCancelSell.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(btnCancelSell, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 selectCom(selectSellCom);
                 selectedTrader.sellEnabled(false);
+                App.sim.autopilot().playerChangedOffer(GOODS[selectSellCom.getSelectedItemPosition()]);
                 updateDisplay();
                 App.vibrate();
             }
@@ -91,7 +95,7 @@ public class TraderView extends RelativeLayout {
     }
 
     private void sellButtonEvent() {
-        btnSell.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(btnSell, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 initDisplay();
@@ -101,6 +105,7 @@ public class TraderView extends RelativeLayout {
 
                     selectedTrader.setSellValues(Integer.parseInt(editSellQuant.getText().toString()), App.sim.DtoC(editSellPrice.getText().toString()));
                     selectedTrader.sellEnabled(true);
+                    App.sim.autopilot().playerChangedOffer(GOODS[selectSellCom.getSelectedItemPosition()]);
                     updateDisplay();
                     App.vibrate();
                 } catch (Throwable e) {
@@ -112,11 +117,12 @@ public class TraderView extends RelativeLayout {
     }
 
     private void buyCancelEvent() {
-        btnCancelBuy.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(btnCancelBuy, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 selectCom(selectBuyCom);
                 selectedTrader.buyEnabled(false);
+                App.sim.autopilot().playerChangedBuy(GOODS[selectBuyCom.getSelectedItemPosition()]);
                 updateDisplay();
                 App.vibrate();
             }
@@ -124,7 +130,7 @@ public class TraderView extends RelativeLayout {
     }
 
     private void orderButtonEvent() {
-        btnOrder.setOnClickListener(new OnClickListener() {
+        App.onEconomyClick(btnOrder, new OnClickListener() {
             @Override
             public void onClick(View view) {
                 initDisplay();
@@ -135,6 +141,7 @@ public class TraderView extends RelativeLayout {
                     selectedTrader.setBuyCond(buyCond);
 
                     selectedTrader.buyEnabled(true);
+                    App.sim.autopilot().playerChangedBuy(GOODS[selectBuyCom.getSelectedItemPosition()]);
                     updateDisplay();
                     App.vibrate();
                 } catch (Throwable e) {
@@ -145,32 +152,14 @@ public class TraderView extends RelativeLayout {
     }
 
     private void selectCom(Spinner select) {
-
-        int comSelect = select.getSelectedItemPosition();
-        switch(comSelect) {
-            case 0: {
-                selectedTrader = App.sim.access.master.foodTrader;
-                break;
-            }
-            case 1: {
-                selectedTrader = App.sim.access.master.toolTrader;
-                break;
-            }
-            case 2: {
-                selectedTrader = App.sim.access.master.coalTrader;
-                break;
-            }
-            case 3: {
-                selectedTrader = App.sim.access.master.ironTrader;
-                break;
-            }
-        }
+        selectedTrader = MarketOrder.traderFor(App.sim.access.master, GOODS[select.getSelectedItemPosition()]);
     }
+
     public void initFromState(){
         initDisplay();
         updateDisplay();
     }
-    private void updateDisplay() {
+    void updateDisplay() {
         try {
             if (App.sim == null) {
                 return;
@@ -198,8 +187,8 @@ public class TraderView extends RelativeLayout {
             if (m.is_enabled)
                 sellDisp += getResources().getString(R.string.sellingiron) + _format_string(sell_to_local(m.i_sellCond), m.is_setValue);
 
-            buyOrderDisplay.setText(buyDisp);
-            sellOrderDisplay.setText(sellDisp);
+            if (!buyDisp.contentEquals(buyOrderDisplay.getText())) buyOrderDisplay.setText(buyDisp);
+            if (!sellDisp.contentEquals(sellOrderDisplay.getText())) sellOrderDisplay.setText(sellDisp);
         } catch (Exception e) {
             Toast.makeText(getContext(), "Anomaly detected, no big deal.", Toast.LENGTH_SHORT).show();
         }
@@ -216,47 +205,47 @@ public class TraderView extends RelativeLayout {
 
     private String buy_to_english(int pos) {
         switch(pos) {
-            case 0: return "Now at market value";
-            case 1: return "Price is below [set price]";
-            case 2: return "Price is above [set price]";
+            case 0: return MarketOrder.MARKET;
+            case 1: return MarketOrder.BELOW;
+            case 2: return MarketOrder.ABOVE;
         }
         return null;
     }
     private String sell_to_english(int pos) {
         switch(pos) {
-            case 0: return "Now at market value";
-            case 1: return "Now at [set price]";
-            case 2: return "Now at [set price] above market value";
-            case 3: return "Now at [set price] below market value";
-            case 4: return "Price is below [set price]";
-            case 5: return "Price is above [set price]";
+            case 0: return MarketOrder.MARKET;
+            case 1: return MarketOrder.FIXED;
+            case 2: return MarketOrder.MARKUP;
+            case 3: return MarketOrder.DISCOUNT;
+            case 4: return MarketOrder.BELOW;
+            case 5: return MarketOrder.ABOVE;
         }
         return null;
     }
     private String sell_to_local(String english) {
         int id = 0;
-        switch(english) {
-            case "Now at market value": {
+        switch(english.replace("[set value]", "[set price]")) {
+            case MarketOrder.MARKET: {
                 id = R.string.sell0;
                 break;
             }
-            case "Now at [set price]": {
+            case MarketOrder.FIXED: {
                 id = R.string.sell1;
                 break;
             }
-            case "Now at [set price] above market value":{
+            case MarketOrder.MARKUP:{
                 id = R.string.sell2;
                 break;
             }
-            case "Now at [set price] below market value": {
+            case MarketOrder.DISCOUNT: {
                 id = R.string.sell3;
                 break;
             }
-            case "Price is below [set price]": {
+            case MarketOrder.BELOW: {
                 id = R.string.sell4;
                 break;
             }
-            case "Price is above [set price]": {
+            case MarketOrder.ABOVE: {
                 id = R.string.sell5;
                 break;
             }
@@ -265,16 +254,16 @@ public class TraderView extends RelativeLayout {
     }
     private String buy_to_local(String english) {
         int id = 0;
-        switch(english) {
-            case "Now at market value": {
+        switch(english.replace("[set value]", "[set price]")) {
+            case MarketOrder.MARKET: {
                 id = R.string.buy0;
                 break;
             }
-            case "Price is below [set price]": {
+            case MarketOrder.BELOW: {
                 id = R.string.buy1;
                 break;
             }
-            case "Price is above [set price]": {
+            case MarketOrder.ABOVE: {
                 id = R.string.buy2;
                 break;
             }

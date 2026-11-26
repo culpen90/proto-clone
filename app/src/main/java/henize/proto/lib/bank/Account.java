@@ -79,9 +79,8 @@ public class Account implements Serializable {
         if (balance < amount) {
             throw new RuntimeException("Insuffencient Funds");
         }
-        if(!access.bank.enoughReserves(amount)) {
-            throw new RuntimeException("Not enough reserves");
-        }
+        // Issuing currency added the same amount to reserves. Retiring it reverses both entries.
+        access.bank.removeReserve(amount);
         balance -= amount;
         access.bankStats.totalCurrency -= amount;
         access.bankStats.lostCurrency += amount;
@@ -181,31 +180,23 @@ public class Account implements Serializable {
      * Evenly distribute a specified amount of currency to all traders of a specified type
      * @param t
      * @param amount
-     * @param _this
+     * @param excluded trader to omit, such as a worker distributing their estate
      */
-    public void distribute(ComType t, long amount, Trader _this) {
-        Account temp = new Account(access, 0);
-        temp.__transfer(this, amount);
-        Trader[] list = access.dir.getListFromType(t).getList();
-        int offset = 0;
-        if(t != ComType.LABOR) offset++; //offsetting master trader
-        if(_this != null) offset++;
-        if(list.length == 1) offset = 0;
-        long dist = temp.balance / (list.length - offset);
-        if(dist == 0) dist = 1;
-        for(int i = 0; i < list.length; i++) {
-
-            if(list[i].id.equals("MASTER")) continue;
-            if(list[i] == _this) continue;
-            if(temp.balance < dist) dist = temp.balance;
-            list[i].account.__transfer(temp, dist);
-            if(temp.balance == 0) break;
-            if(i == list.length - 1) {
-                list[i].account.__transfer(temp, temp.balance);
+    public void distribute(ComType t, long amount, Trader excluded) {
+        if (amount < 0 || amount > balance) throw new IllegalArgumentException("Invalid distribution amount");
+        if (amount == 0) return;
+        List<Account> recipients = new ArrayList<>();
+        for (Trader trader : access.dir.getListFromType(t).getList()) {
+            if (trader != excluded && !trader.isDead && trader.account != this && !"MASTER".equals(trader.id)) {
+                recipients.add(trader.account);
             }
-
         }
-        temp.close();
+        if (recipients.isEmpty()) return;
+        long share = amount / recipients.size();
+        long remainder = amount % recipients.size();
+        for (int i = 0; i < recipients.size(); i++) {
+            recipients.get(i).__transfer(this, share + (i < remainder ? 1 : 0));
+        }
     }
 
     /**
@@ -248,30 +239,7 @@ public class Account implements Serializable {
     }
 
     private long getTaxAmount(long amount, TaxCode taxCode) {
-        switch(taxCode) {
-            case NULL: {
-                return (long)(amount * (access.config.universalTaxRate / 100));
-            }
-            case LABOR: {
-                return (long)(amount * (access.config.laborTaxRate / 100));
-            }
-            case FOOD: {
-                return (long)(amount * (access.config.foodTaxRate / 100));
-            }
-            case TOOL: {
-                return (long)(amount * (access.config.toolTaxRate / 100));
-            }
-            case COAL: {
-                return (long)(amount * (access.config.coalTaxRate / 100));
-            }
-            case IRON: {
-                return (long)(amount * (access.config.ironTaxRate / 100));
-            }
-            case TRANSPORT: {
-                return (long)(amount * (access.config.transportTaxRate / 100));
-            }
-        }
-        return 0;
+        return (long) (amount * (TaxRates.get(access.config, taxCode) / 100));
     }
 
     //Transaction event listeners.

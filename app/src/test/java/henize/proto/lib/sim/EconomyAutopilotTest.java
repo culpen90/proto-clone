@@ -7,6 +7,7 @@ import org.junit.Test;
 import henize.proto.App;
 import henize.proto.lib.bank.Account;
 import henize.proto.lib.map.Traveler;
+import henize.proto.lib.stats.GraphData;
 import henize.proto.lib.traders.ComType;
 import henize.proto.lib.traders.Trader;
 import henize.proto.pathfinder.Coordinate;
@@ -47,6 +48,83 @@ public class EconomyAutopilotTest {
 
     private void putBankCashInTreasury() {
         access.taxAccount.__transfer(access.bank.account, access.bank.account.getBalance());
+    }
+
+    private void tradeAtPrice(long price) {
+        access.bankStats.transactionCount++;
+        sim.graph.addPoint(new GraphData(1, price, price, price, price, 1));
+        observe(REVIEW_TICKS);
+    }
+
+    @Test public void recoveredMarketRestoresBankTermsOneRateAtATime() {
+        putBankCashInTreasury();
+        access.bank.reserveRate = 0.10;
+        access.bank.interestRate = 0.05;
+        pilot.setEnabled(true);
+        observe(1);
+        tradeAtPrice(300);
+        assertEquals(MONITORING, pilot.getStatus());
+        tradeAtPrice(300);
+        assertEquals(RESTORING_RESERVE_RATE, pilot.getStatus());
+        assertEquals(0.20, access.bank.reserveRate, 0);
+        assertEquals(0.05, access.bank.interestRate, 0);
+        tradeAtPrice(300);
+        assertEquals(RESTORING_INTEREST_RATE, pilot.getStatus());
+        assertEquals(0.15, access.bank.interestRate, 0);
+    }
+
+    @Test public void repeatedMarketSwingsAndStableTradingSwitchThePriceModel() {
+        putBankCashInTreasury();
+        pilot.setEnabled(true);
+        observe(1);
+        tradeAtPrice(100);
+        tradeAtPrice(150);
+        assertTrue(access.config.supplyAndDemandEnabled);
+        tradeAtPrice(225);
+        assertEquals(STABILIZING_PRICES, pilot.getStatus());
+        assertFalse(access.config.supplyAndDemandEnabled);
+        for (int i = 0; i < 4; i++) tradeAtPrice(225);
+        assertEquals(RESTORING_MARKET_PRICES, pilot.getStatus());
+        assertTrue(access.config.supplyAndDemandEnabled);
+    }
+
+    @Test public void activeEconomyRetiresOnlySurplusTreasuryCurrency() {
+        Account surplus = new Account(access, 600_000);
+        access.taxAccount.__transfer(surplus, 600_000);
+        long supply = access.bankStats.totalCurrency;
+        pilot.setEnabled(true);
+        observe(1);
+        tradeAtPrice(100);
+        assertEquals(supply, access.bankStats.totalCurrency);
+        tradeAtPrice(100);
+        assertEquals(RETIRING_CURRENCY, pilot.getStatus());
+        assertEquals(supply - 30_000, access.bankStats.totalCurrency);
+        assertEquals(570_000, access.taxAccount.getBalance());
+        for (int i = 0; i < 10; i++) tradeAtPrice(100);
+        assertEquals(500_000, access.bankStats.totalCurrency);
+        assertEquals(supply - 500_000, access.bankStats.lostCurrency);
+        assertEquals(500_000, access.bank.reserve);
+        Account borrower = access.dir.getListFromType(ComType.LABOR).getAtIndex(0).account;
+        long bankCash = access.bank.account.getBalance();
+        assertTrue(access.bank.issueLoanTo(borrower, 100));
+        access.bank.payOnLoan(borrower, 100);
+        assertEquals(bankCash, access.bank.account.getBalance());
+        assertEquals(500_000, access.bank.reserve);
+    }
+
+    @Test public void stalledEconomyCanOrderMissingStockAndReleaseStuckProduction() {
+        putBankCashInTreasury();
+        pilot.setEnabled(true);
+        observe(2 * REVIEW_TICKS + 1);
+        assertEquals(FUNDING_TRADE, pilot.getStatus());
+        observe(REVIEW_TICKS);
+        assertEquals(PLACING_SPECIAL_ORDER, pilot.getStatus());
+        assertFalse(sim.specialPriority.empty());
+        observe(REVIEW_TICKS);
+        assertFalse(sim.specialPriority.empty());
+        observe(REVIEW_TICKS);
+        assertEquals(BREAKING_ORDERS, pilot.getStatus());
+        assertTrue(sim.specialPriority.empty());
     }
 
     @Test public void sustainedCreditLockRestartsRealMarketTrades() {

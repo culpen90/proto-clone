@@ -22,6 +22,7 @@ import android.content.res.Resources;
 import android.os.Vibrator;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
@@ -74,6 +75,21 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
     private boolean resumed;
     private boolean initialLoad = true;
     private boolean protectUnreadableAutosave;
+    private final Handler controlsHandler = new Handler();
+    private final Runnable refreshEconomicControls = new Runnable() {
+        @Override public void run() {
+            if (!resumed) return;
+            synchronized (App.sim) {
+                if (menuSupplyDemand != null) menuSupplyDemand.setChecked(App.sim.access.config.supplyAndDemandEnabled);
+                if (!simulator.simPaused) {
+                    if (currencyView.getParent() != null) currencyView.refreshTaxPolicy();
+                    if (traderView.getParent() != null) traderView.updateDisplay();
+                    if (specialOrderingView.getParent() != null) specialOrderingView.refresh();
+                }
+            }
+            controlsHandler.postDelayed(this, 1000);
+        }
+    };
     private final EconomyTransfer economyTransfer = new EconomyTransfer(this);
 
     //AdServer adServer;
@@ -299,6 +315,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
     @Override
     protected void onPause() {
         resumed = false;
+        controlsHandler.removeCallbacks(refreshEconomicControls);
         turnOffSpeed();
         stop();
         if (!protectUnreadableAutosave) serialize();
@@ -347,6 +364,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
             pref.setView(R.id.map_item);
         }
         _resume();
+        controlsHandler.post(refreshEconomicControls);
         TypedValue tv = new TypedValue();
         if (getTheme().resolveAttribute(android.R.attr.actionBarSize, tv, true))
         {
@@ -478,8 +496,10 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
             }
             case R.id.priceModel: {
                 _return = true;
-                App.sim.access.config.supplyAndDemandEnabled = !App.sim.access.config.supplyAndDemandEnabled;
-                item.setChecked(App.sim.access.config.supplyAndDemandEnabled);
+                synchronized (App.sim) {
+                    App.sim.access.config.supplyAndDemandEnabled = !App.sim.access.config.supplyAndDemandEnabled;
+                    item.setChecked(App.sim.access.config.supplyAndDemandEnabled);
+                }
 
                 if (App.sim.access.config.supplyAndDemandEnabled) {
                     Toast.makeText(this, "The economy will respond to supply and demand.", Toast.LENGTH_SHORT).show();
@@ -508,6 +528,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
 
     public void initUIFromState() {
         traderView.initFromState();
+        specialOrderingView.refresh();
         currencyView.initFromState();
         bankView.initFromState();
         controlView.refresh();
@@ -589,6 +610,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
             }
             case R.id.special_order_item: {
                 stop();
+                specialOrderingView.refresh();
                 setContentView(specialOrderingView);
                 start();
                 switchToMapOnPlay = true;
@@ -596,6 +618,7 @@ public class MainActivity extends AppCompatActivity implements AlertDialog.OnCli
             }
             case R.id.trader_item: {
                 stop();
+                traderView.initFromState();
                 setContentView(traderView);
                 start();
                 switchToMapOnPlay = true;

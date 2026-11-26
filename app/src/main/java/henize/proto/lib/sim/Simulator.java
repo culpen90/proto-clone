@@ -35,6 +35,7 @@ import henize.proto.lib.stats.TextStats;
 import henize.proto.lib.stats.TraderStats;
 import henize.proto.lib.traders.CoalTrader;
 import henize.proto.lib.traders.ComType;
+import henize.proto.lib.traders.MarketOrder;
 import henize.proto.lib.traders.FoodTrader;
 import henize.proto.lib.traders.IronTrader;
 import henize.proto.lib.traders.LaborTrader;
@@ -90,10 +91,10 @@ public class Simulator implements TransactionListener, Serializable {
         initSimulator(scale, loadMap, null);
     }
     public void initSimulator(int scale, String loadMap, Config config){
-        autopilot = new EconomyAutopilot();
         this.scale = scale;
         this.loadMap = loadMap;
         access = new Access();
+        autopilot = new EconomyAutopilot(access);
         if(config == null){
             if(cfg == null) {
                 access.config = new Config();
@@ -128,7 +129,7 @@ public class Simulator implements TransactionListener, Serializable {
     }
 
     public void initNonSerializable() {
-        if (autopilot == null) autopilot = new EconomyAutopilot();
+        if (autopilot == null) autopilot = new EconomyAutopilot(access);
         //access.config.fresh = true;
         textStats = new TextStats(this);
         advTextStats = new AdvTextStats(this);
@@ -272,10 +273,9 @@ public class Simulator implements TransactionListener, Serializable {
         return autopilot;
     }
 
-    public void Next(){
+    public synchronized void Next(){
                 if(breakPriority) {
-                    specialPriority.clear();
-                    breakPriority = false;
+                    breakPriority(); // A break requested in an older save.
                 }
                 access.bankStats.adj_totalCurrency = bankSum();
                 autopilot.onTick(access);
@@ -354,7 +354,22 @@ public class Simulator implements TransactionListener, Serializable {
         map.interrupt();
     }
 
-    public void breakPriority() {
-        breakPriority = true;
+    public synchronized boolean placePriorityOrder(ComType type, int quantity) {
+        if (quantity <= 0 || type == null || type == LABOR || type == TRANSPORTATION) return false;
+        Trader buyer = MarketOrder.traderFor(access.master, type);
+        // Older saves could retain seller queues after Break Obligations cleared the stack.
+        if (breakPriority || specialPriority.isEmpty()) breakPriority();
+        return buyer.buySpecialPriority(type, quantity);
+    }
+
+    public synchronized void breakPriority() {
+        specialPriority.clear();
+        access.dir.laborOrderForTrade.clear();
+        for (Trader trader : access.dir.getAll()) {
+            if (trader.execSpecial || !trader.specialOrders.isEmpty() || !trader.processingSpecialOrders.isEmpty()) {
+                trader.cancelPriorityOrders();
+            }
+        }
+        breakPriority = false;
     }
 }

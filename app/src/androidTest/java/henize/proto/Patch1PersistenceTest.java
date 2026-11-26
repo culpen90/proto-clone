@@ -34,11 +34,14 @@ import java.util.Random;
 import java.util.Set;
 
 import henize.proto.lib.bank.Account;
+import henize.proto.lib.commodities.Iron;
+import henize.proto.lib.sim.EconomyAutopilot;
 import henize.proto.lib.sim.Simulator;
 import henize.proto.lib.sim.Config;
 import henize.proto.lib.stats.Graph;
 import henize.proto.lib.stats.GraphData;
 import henize.proto.lib.traders.ComType;
+import henize.proto.lib.traders.Trader;
 
 /** Exercises the app's actual persistence entry points on the Android runtime. */
 public class Patch1PersistenceTest extends InstrumentationTestCase {
@@ -355,6 +358,81 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
                     economy.access.bankStats.transactionCount > 0);
             toggle.performClick();
             assertFalse(economy.autopilot().isEnabled());
+        });
+    }
+
+    public void testAutopilotOrdersAppearInControlsAndSurviveSaveLoad() throws Throwable {
+        runTestOnUiThread(() -> {
+            Toolbar toolbar = activity.findViewById(android.support.v7.appcompat.R.id.action_bar);
+            toolbar.getMenu().performIdentifierAction(R.id.control_item, 0);
+            activity.stop();
+            ((android.widget.Switch) activity.findViewById(R.id.economyAutopilotSwitch)).performClick();
+            Simulator economy = App.sim;
+            economy.access.master.ironTrader.com.push(new Iron(economy.access.comStats));
+            for (int i = 0; i < 241; i++) economy.autopilot().onTick(economy.access);
+            assertEquals(EconomyAutopilot.Status.SELLING_STOCK, economy.autopilot().getStatus());
+
+            toolbar.getMenu().performIdentifierAction(R.id.trader_item, 0);
+            activity.stop();
+            assertTrue(activity.traderView.sellOrderDisplay.getText().toString().contains(
+                    activity.getString(R.string.sellingiron).trim()));
+            assertTrue(activity.saveLocalEconomy(namedSlot));
+            assertTrue(activity.loadLocalEconomy(namedSlot));
+            activity.stop();
+            Simulator restored = App.sim;
+            assertNotSame(economy, restored);
+            assertTrue(restored.access.master.is_enabled);
+            restored.access.master.ironTrader.com.clear();
+            for (int i = 0; i < 121; i++) restored.autopilot().onTick(restored.access);
+            assertEquals(EconomyAutopilot.Status.CANCELLING_TRADE, restored.autopilot().getStatus());
+            assertFalse(restored.access.master.is_enabled);
+
+            toolbar.getMenu().performIdentifierAction(R.id.special_order_item, 0);
+            activity.stop();
+            assertTrue(restored.placePriorityOrder(ComType.TOOL, 1));
+            activity.specialOrderingView.refresh();
+            assertTrue(activity.specialOrderingView.list.getText().toString().contains("TOOL × 1"));
+            activity.specialOrderingView.cancel.performClick();
+            assertTrue(restored.specialPriority.empty());
+            assertEquals("", activity.specialOrderingView.list.getText().toString());
+        });
+    }
+
+    public void testPendingAutopilotBidStaysBoundedThroughSaveAndManualHandoff() throws Throwable {
+        runOnMain(activity::stop);
+        Simulator economy = App.sim;
+        economy.access.taxAccount.__transfer(economy.access.bank.account, 1000);
+        // Put two expensive units on the market at each mine. The treasury can bid for one.
+        Field stocked = Trader.class.getDeclaredField("isStocked");
+        stocked.setAccessible(true);
+        for (Trader mine : economy.access.dir.getListFromType(ComType.IRON).getList()) {
+            if (mine.account == economy.access.taxAccount) continue;
+            mine.com.push(new Iron(economy.access.comStats));
+            mine.com.push(new Iron(economy.access.comStats));
+            mine.priceOffset = 200;
+            stocked.setBoolean(mine, true);
+        }
+        economy.autopilot().setEnabled(true);
+        for (int i = 0; i < 241; i++) economy.autopilot().onTick(economy.access);
+        assertEquals(EconomyAutopilot.Status.PLACING_BUY_ORDER, economy.autopilot().getStatus());
+
+        runTestOnUiThread(() -> {
+            assertTrue(activity.saveLocalEconomy(namedSlot));
+            assertTrue(activity.loadLocalEconomy(namedSlot));
+            Simulator restored = App.sim;
+            assertTrue(restored.autopilot().ownsBuy(ComType.IRON));
+            assertTrue(restored.access.master.ib_enabled);
+            Toolbar toolbar = activity.findViewById(android.support.v7.appcompat.R.id.action_bar);
+            toolbar.getMenu().performIdentifierAction(R.id.trader_item, 0);
+            activity.stop();
+            assertTrue(activity.traderView.buyOrderDisplay.getText().toString().contains(
+                    activity.getString(R.string.buyingiron).trim()));
+            toolbar.getMenu().performIdentifierAction(R.id.control_item, 0);
+            activity.stop();
+            ((android.widget.Switch) activity.findViewById(R.id.economyAutopilotSwitch)).performClick();
+            assertFalse(restored.access.master.ib_enabled);
+            assertFalse(restored.autopilot().ownsBuy(ComType.IRON));
+            assertEquals(1000, restored.access.taxAccount.getBalance());
         });
     }
 

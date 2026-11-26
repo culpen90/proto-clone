@@ -21,6 +21,7 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 import android.widget.Toast;
+import android.view.View;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -171,6 +172,15 @@ public static void setSupportPoints(int val) {
             }
         }
     };
+
+    /** Apply a complete player intervention between simulation ticks. */
+    static void onEconomyClick(View button, View.OnClickListener action) {
+        button.setOnClickListener(view -> {
+            synchronized (sim) {
+                action.onClick(view);
+            }
+        });
+    }
 
     public static void vibrate() {
 

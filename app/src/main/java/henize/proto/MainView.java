@@ -34,6 +34,7 @@ import android.view.View;
 import android.view.WindowInsets;
 
 import henize.proto.lib.map.Traveler;
+import henize.proto.lib.sim.Simulator;
 import henize.proto.lib.traders.Trader;
 import henize.proto.pathfinder.Coordinate;
 import henize.proto.protoui.Container;
@@ -359,8 +360,11 @@ public class MainView extends SurfaceView implements Runnable {
                        if (henize.proto.lib.sim.Config.FPS_DELAY) {
                            Thread.sleep(16);
                        }
-                       App.sim.Next();
-                       App.sim.map.Tick();
+                       Simulator economy = App.sim;
+                       synchronized (economy) {
+                           economy.Next();
+                           economy.map.Tick();
+                       }
                    } catch (NullPointerException e) {
                        ok = false;
                    } catch (Exception e) {
