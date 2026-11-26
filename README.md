@@ -6,6 +6,8 @@ The app simulates autonomous production, trading and transportation across six i
 
 In the editable build, **Banking** accepts whole percentages from −100% to 100% for both rates. Negative interest credits borrowers’ outstanding debt each payment cycle. A −20% reserve rate lets the bank lend down to a reserve balance of −20% of the money supply.
 
+For help with a struggling economy, open **Control → Economies**, turn on **Economy autopilot**, then press **Play**. It watches for repeated payment failures, frozen borrowers and stalled trade. It can adjust bank rates, fund a farm or worker from the treasury, or create currency to rebuild reserves while the money supply is below $5,000. Return to **Economies** to see its latest decision or switch back to manual control. Each save remembers your choice.
+
 Download the signed Android APK from [GitHub Releases](https://github.com/culpen90/proto-clone/releases/latest). It installs alongside the original Proto app. If you already use a locally signed build of Proto Clone, back up any saves you want to keep before switching. Android requires matching signatures for an in-place update.
 
 ## Save an economy or move it to another device

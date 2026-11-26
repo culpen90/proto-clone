@@ -22,7 +22,8 @@ import henize.proto.lib.stats.GraphData;
 /** Portable model and transaction history, independent of the installation's private files. */
 final class EconomySnapshot {
     private static final int MAGIC = 0x50524f54; // PROT
-    private static final int VERSION = 1;
+    private static final int VERSION_ORIGINAL = 1;
+    private static final int VERSION_AUTOPILOT = 2;
     private static final int MAX_PORTABLE_HISTORY = 1_000_000;
 
     static void write(Simulator sim, OutputStream destination) throws IOException {
@@ -30,7 +31,10 @@ final class EconomySnapshot {
         CRC32 checksum = new CRC32();
         DataOutputStream out = new DataOutputStream(new CheckedOutputStream(buffer, checksum));
         out.writeInt(MAGIC);
-        out.writeInt(VERSION);
+        boolean automated = sim.autopilot().isEnabled();
+        // Manual economies can still be transferred to releases that read version 1.
+        out.writeInt(automated ? VERSION_AUTOPILOT : VERSION_ORIGINAL);
+        if (automated) out.writeBoolean(true);
         EconomyModelCodec.write(sim, out);
         if (sim.graph.virt_days.size() > MAX_PORTABLE_HISTORY) {
             throw new IOException("Graph history is too large to export");
@@ -45,7 +49,11 @@ final class EconomySnapshot {
         CRC32 checksum = new CRC32();
         DataInputStream in = new DataInputStream(new CheckedInputStream(buffer, checksum));
         if (in.readInt() != MAGIC) throw new IOException("This file is not a Proto economy");
-        if (in.readInt() != VERSION) throw new IOException("Unsupported economy version");
+        int version = in.readInt();
+        if (version != VERSION_ORIGINAL && version != VERSION_AUTOPILOT) {
+            throw new IOException("Unsupported economy version");
+        }
+        boolean automated = version == VERSION_AUTOPILOT && in.readBoolean();
         Simulator sim = EconomyModelCodec.read(in);
         int count = in.readInt();
         if (count > MAX_PORTABLE_HISTORY) throw new IOException("Graph history is too large");
@@ -54,6 +62,7 @@ final class EconomySnapshot {
             throw new IOException("Damaged economy file");
         }
         sim.initNonSerializable();
+        sim.autopilot().setEnabled(automated);
         return sim;
     }
 

@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.lang.reflect.Field;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -82,9 +83,11 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
     public void testNamedSaveRestoresEconomyAndGraphHistory() throws Exception {
         populateSnapshot(123456L, 0.37, 0.08);
         final Simulator savedInstance = App.sim;
+        assertFalse("A new economy starts in manual mode", savedInstance.autopilot().isEnabled());
         final long savedCurrency = App.sim.access.bankStats.totalCurrency;
         runOnMain(new Runnable() {
             @Override public void run() {
+                App.sim.autopilot().setEnabled(true);
                 activity.serialize(namedSlot);
             }
         });
@@ -95,6 +98,7 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
                 App.sim.access.taxAccount.__edit(999L);
                 App.sim.access.bank.reserveRate = 0.99;
                 App.sim.access.config.collectTax = false;
+                App.sim.autopilot().setEnabled(false);
                 App.sim.graph.virt_days.clear();
                 App.sim.graph.addPoint(new GraphData(1, 2, 3, 4, 5, 6));
                 // Another slot saved later must not replace the named slot's history.
@@ -104,6 +108,7 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
         });
         awaitGraphLoad();
         assertNotSame("Loading must replace the mutated simulation", savedInstance, App.sim);
+        assertTrue("The named economy keeps its autopilot", App.sim.autopilot().isEnabled());
         assertSnapshot(123456L, 0.37, 0.08);
         assertEquals(savedCurrency, App.sim.access.bankStats.totalCurrency);
         assertSame("Bank and traders must share the restored simulation graph",
@@ -116,11 +121,14 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
 
         runOnMain(() -> activity.deserialize(testStateFile));
         awaitGraphLoad();
+        assertFalse("Loading a manual slot returns control to the player", App.sim.autopilot().isEnabled());
         assertEquals(1, App.sim.graph.virt_days.size());
         assertEquals(6L, App.sim.graph.virt_days.get(0).transport);
     }
 
     public void testLegacyLocalEconomyReadsSharedGraph() throws Exception {
+        assertEquals("Older Java-serialized economies must remain readable", -929720395475707207L,
+                ObjectStreamClass.lookup(Simulator.class).getSerialVersionUID());
         populateSnapshot(827L, 0.22, -0.17);
         try (ObjectOutputStream state = new ObjectOutputStream(context.openFileOutput(
                 namedSlot, Context.MODE_PRIVATE));
@@ -141,6 +149,7 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
         runOnMain(() -> activity.applyEconomy(legacy));
         awaitGraphLoad();
         assertNotSame(before, App.sim);
+        assertFalse("Legacy saves default to manual mode", App.sim.autopilot().isEnabled());
         assertSnapshot(827L, 0.22, -0.17);
     }
 
@@ -186,6 +195,7 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
         });
         populateSnapshot(21346L, -0.14, -0.07);
         Simulator source = App.sim;
+        source.autopilot().setEnabled(true);
         long savedCash = source.access.taxAccount.getBalance();
         int cycle = source.access.bank.cycle;
         ByteArrayOutputStream file = new ByteArrayOutputStream();
@@ -194,6 +204,7 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
 
         Simulator restored = EconomyArchive.read(new ByteArrayInputStream(file.toByteArray()), key);
         assertNotSame(source, restored);
+        assertTrue("The imported economy keeps its autopilot", restored.autopilot().isEnabled());
         assertSame("Reading a file must not replace the active economy", source, App.sim);
         assertSame(restored, restored.access.sim);
         assertSame(restored.access.taxAccount, restored.access.master.foodTrader.account);
@@ -274,12 +285,14 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
 
     public void testFinishAndRelaunchRestoresDefaultSnapshot() throws Exception {
         populateSnapshot(765432L, 0.42, 0.06);
+        runOnMain(() -> App.sim.autopilot().setEnabled(true));
         final Simulator savedInstance = App.sim;
         finishActivity(); // Real onPause performs the automatic default-slot save.
         assertTrue("Lifecycle must create the default state file", file(testStateFile).length() > 0);
         launchActivity(); // Real onResume loads the automatic state.
         awaitGraphLoad();
         assertNotSame(savedInstance, App.sim);
+        assertTrue("Autopilot survives the automatic save", App.sim.autopilot().isEnabled());
         assertSnapshot(765432L, 0.42, 0.06);
         assertTrue("Relaunch must remain paused", activity.simulator.simPaused);
     }
@@ -309,6 +322,39 @@ public class Patch1PersistenceTest extends InstrumentationTestCase {
             assertTrue(view.simPaused);
             assertEquals(cycle, App.sim.access.bank.cycle);
             assertEquals(points, App.sim.graph.virt_days.size());
+        });
+    }
+
+    public void testAutopilotRestartsTradeInACreditCrunch() throws Throwable {
+        runTestOnUiThread(() -> {
+            Toolbar toolbar = activity.findViewById(android.support.v7.appcompat.R.id.action_bar);
+            toolbar.getMenu().performIdentifierAction(R.id.control_item, 0);
+            activity.stop();
+            Simulator economy = App.sim;
+            // The treasury holds the cash and a 100% reserve requirement blocks new loans.
+            economy.access.taxAccount.__transfer(economy.access.bank.account,
+                    economy.access.bank.account.getBalance());
+            economy.access.bank.reserveRate = 1;
+            for (int tick = 0; tick < 150; tick++) {
+                economy.Next();
+                economy.map.Tick();
+            }
+            assertEquals(0L, economy.access.bankStats.transactionCount);
+            assertTrue(economy.access.bank.creditMeltdown);
+
+            android.widget.Switch toggle = activity.findViewById(R.id.economyAutopilotSwitch);
+            assertFalse(toggle.isChecked());
+            toggle.performClick();
+            assertTrue(economy.autopilot().isEnabled());
+            for (int tick = 0; tick < 1000 && economy.access.bankStats.transactionCount == 0; tick++) {
+                economy.Next();
+                economy.map.Tick();
+            }
+            economy.interrupt();
+            assertTrue("Traders should be able to complete a purchase again",
+                    economy.access.bankStats.transactionCount > 0);
+            toggle.performClick();
+            assertFalse(economy.autopilot().isEnabled());
         });
     }
 

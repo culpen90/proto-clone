@@ -55,6 +55,9 @@ import static henize.proto.lib.traders.ComType.TRANSPORTATION;
  */
 
 public class Simulator implements TransactionListener, Serializable {
+    // Keep Java-serialized economies from before the snapshot format readable.
+    private static final long serialVersionUID = -929720395475707207L;
+    private transient EconomyAutopilot autopilot;
     public Map map;
     public Access access;
     public boolean wait_for_t;
@@ -87,6 +90,7 @@ public class Simulator implements TransactionListener, Serializable {
         initSimulator(scale, loadMap, null);
     }
     public void initSimulator(int scale, String loadMap, Config config){
+        autopilot = new EconomyAutopilot();
         this.scale = scale;
         this.loadMap = loadMap;
         access = new Access();
@@ -124,6 +128,7 @@ public class Simulator implements TransactionListener, Serializable {
     }
 
     public void initNonSerializable() {
+        if (autopilot == null) autopilot = new EconomyAutopilot();
         //access.config.fresh = true;
         textStats = new TextStats(this);
         advTextStats = new AdvTextStats(this);
@@ -262,12 +267,18 @@ public class Simulator implements TransactionListener, Serializable {
         }
         return true;
     }
+
+    public EconomyAutopilot autopilot() {
+        return autopilot;
+    }
+
     public void Next(){
                 if(breakPriority) {
                     specialPriority.clear();
                     breakPriority = false;
                 }
                 access.bankStats.adj_totalCurrency = bankSum();
+                autopilot.onTick(access);
                 access.bank.act();
                 access.master.act();
                 access.dir.getListFromType(TRANSPORTATION).getAtIndex(0).act();

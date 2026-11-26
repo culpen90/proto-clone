@@ -17,7 +17,10 @@ import android.content.Context;
 import android.view.View;
 import android.widget.Button;
 import android.widget.RelativeLayout;
+import android.widget.Switch;
 import android.widget.TextView;
+
+import henize.proto.lib.sim.EconomyAutopilot;
 
 /**
  * Created by ACR411 on 9/10/2018.
@@ -27,6 +30,8 @@ public class ControlView extends RelativeLayout {
 
     Button classic, big, big2, boot;
     TextView text;
+    private final Switch autopilotSwitch;
+    private final TextView autopilotStatus;
 
     public ControlView(Context context) {
         super(context);
@@ -36,6 +41,15 @@ public class ControlView extends RelativeLayout {
         big2 = findViewById(R.id.buttonBig2);
         boot = findViewById(R.id.buttonViewBoot);
         text = findViewById(R.id.textView22);
+        autopilotSwitch = findViewById(R.id.economyAutopilotSwitch);
+        autopilotStatus = findViewById(R.id.economyAutopilotStatus);
+        autopilotSwitch.setOnCheckedChangeListener((button, enabled) -> {
+            EconomyAutopilot autopilot = App.sim.autopilot();
+            if (enabled != autopilot.isEnabled()) {
+                autopilot.setEnabled(enabled);
+                refresh();
+            }
+        });
 
         classic.setOnClickListener(new OnClickListener() {
             @Override
@@ -89,5 +103,36 @@ public class ControlView extends RelativeLayout {
             }
         });
 
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        refresh();
+    }
+
+    void refresh() {
+        EconomyAutopilot autopilot = App.sim.autopilot();
+        autopilotSwitch.setChecked(autopilot.isEnabled());
+        autopilotStatus.setText(autopilot.isEnabled()
+                ? statusMessage(autopilot.getStatus()) : R.string.economy_autopilot_off);
+    }
+
+    private int statusMessage(EconomyAutopilot.Status status) {
+        switch (status) {
+            case EASING_CREDIT:
+                return R.string.economy_autopilot_easing_credit;
+            case RELIEVING_DEBT:
+                return R.string.economy_autopilot_relieving_debt;
+            case FUNDING_TRADE:
+                return R.string.economy_autopilot_funding_trade;
+            case REBUILDING_RESERVES:
+                return R.string.economy_autopilot_rebuilding_reserves;
+            case LIMITED:
+                return R.string.economy_autopilot_limited;
+            case MONITORING:
+            default:
+                return R.string.economy_autopilot_monitoring;
+        }
     }
 }
