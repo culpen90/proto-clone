@@ -23,6 +23,7 @@ import henize.proto.lib.commodities.Labor;
 import henize.proto.lib.map.ArrivalPoint;
 import henize.proto.lib.map.Traveler;
 import henize.proto.lib.sim.Access;
+import henize.proto.pathfinder.Coordinate;
 
 import static henize.proto.lib.map.ArrivalPoint.START;
 import static henize.proto.lib.traders.ComType.FOOD;
@@ -57,13 +58,21 @@ public class LaborTrader extends Trader implements Serializable {
     }
 
     public LaborTrader(Access access, Labor[] l) {
+        this(access, l, requireLaborAddress(access));
+    }
+
+    private static Coordinate requireLaborAddress(Access access) {
+        Coordinate address = access.sim.map.tryGenerateLaborAddress();
+        if (address == null) throw new IllegalStateException("No space for another labor trader");
+        return address;
+    }
+
+    private LaborTrader(Access access, Labor[] l, Coordinate address) {
         super(access);
         traderType = "labor";
-        account.cancel(); //moved above address generation to correct bug of $100 being created.
+        account.cancel();
         account.setTaxCode(Account.TaxCode.LABOR);
-
-        //may throw exception, account canceled before that can happen.
-        this.address = access.sim.map.GenerateAddress(1, access.config.Lxreg, access.config.Lyreg, access.config.L_xreg, access.config.L_yreg, access.config.sequencial);    //throws exception of overpopulated
+        this.address = address;
 
         for (Labor c : l) {
             c.creator = this;
@@ -148,21 +157,16 @@ protected boolean sellSpecialPriority(Trader t, int quant) {
 }
     private void spawn() {
         if (!access.config.LAB_CAN_SPAWN) return;
+        Coordinate address = access.sim.map.tryGenerateLaborAddress();
+        if (address == null) return;
         Labor[] l = new Labor[access.config.LAB_SPAWN_RATE / 2];
-        for (int i = 0; i < access.config.LAB_SPAWN_RATE / 2; i++) {
+        for (int i = 0; i < l.length; i++) {
             l[i] = (Labor)com.pop();
         }
-
-        try {
-            Trader n = new LaborTrader(access, l);
-            access.dir.add(LABOR, n);
-            n.price = this.price;
-            n.id += "(spawn)";
-        }catch (Throwable e) {
-            for(Labor n : l) {
-                com.push(n);  //return labor back to com since failed.
-            }
-        }
+        Trader n = new LaborTrader(access, l, address);
+        n.price = this.price;
+        n.id += "(spawn)";
+        access.dir.add(LABOR, n);
     }
 
     public void pauseTraveler(boolean pause)

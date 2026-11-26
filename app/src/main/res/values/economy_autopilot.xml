@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="economy_autopilot">Economy autopilot</string>
-    <string name="economy_autopilot_off">Let autopilot manage trade, priority orders, taxes, stimulus, currency, bank rates and pricing during play.</string>
-    <string name="economy_autopilot_monitoring">During play, autopilot reviews trade, credit, prices and the treasury.</string>
+    <string name="economy_autopilot_off">Let autopilot keep prices steady and manage trade, priority orders, taxes, stimulus, currency and bank rates during play.</string>
+    <string name="economy_autopilot_monitoring">Autopilot watches prices, trade, credit and the treasury during play.</string>
     <string name="economy_autopilot_easing_credit">Autopilot lowered the bank’s reserve requirement after loans or payments were blocked.</string>
     <string name="economy_autopilot_relieving_debt">Autopilot lowered the interest rate to help borrowers with frozen accounts.</string>
     <string name="economy_autopilot_funding_trade">When trade stalled, autopilot used treasury funds to help workers and farms trade again.</string>
@@ -15,14 +15,13 @@
     <string name="economy_autopilot_buying_stock">Autopilot bought a commodity from a private seller.</string>
     <string name="economy_autopilot_placing_buy_order">Autopilot placed a buy order that waits for an affordable price.</string>
     <string name="economy_autopilot_selling_stock">Autopilot offered treasury inventory for sale.</string>
-    <string name="economy_autopilot_cancelling_trade">Autopilot closed a trade order that no longer met its inventory or spending limits.</string>
+    <string name="economy_autopilot_cancelling_trade">Autopilot closed a trade order after checking prices, available stock and the treasury budget.</string>
     <string name="economy_autopilot_placing_special_order">Autopilot placed a priority order for a commodity in short supply.</string>
     <string name="economy_autopilot_breaking_orders">Autopilot broke stalled priority obligations so ordinary trade could resume.</string>
     <string name="economy_autopilot_starting_taxes">Autopilot started collecting taxes to replenish the treasury.</string>
     <string name="economy_autopilot_suspending_taxes">Autopilot suspended tax collection.</string>
     <string name="economy_autopilot_adjusting_tax_rates">Autopilot adjusted the tax rates for current market conditions.</string>
-    <string name="economy_autopilot_stabilizing_prices">Autopilot switched to stable pricing after repeated large price changes.</string>
-    <string name="economy_autopilot_restoring_market_prices">Autopilot restored supply-and-demand pricing after prices settled.</string>
+    <string name="economy_autopilot_stabilizing_prices">Autopilot selected stable pricing to limit price swings.</string>
     <string name="priority_pending">Outstanding priority orders</string>
     <string name="priority_history">Your orders this session</string>
 </resources>

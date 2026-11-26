@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 package henize.proto.lib.sim;
 
+import java.util.Arrays;
 import java.util.EnumMap;
 
 import henize.proto.lib.traders.ComType;
@@ -18,50 +19,81 @@ final class AutopilotTradePolicy {
     private ComType bidType;
     private long bidTrigger;
 
-    EconomyAutopilot.Status review(Access access, boolean healthy) {
+    EconomyAutopilot.Status stabilizePrices(Access access, AutopilotPricePolicy prices) {
         if (!access.sim.specialPriority.isEmpty() || access.taxAccount.freeze) return null;
-        MasterTrader master = access.master;
-        for (ComType type : GOODS) {
-            Trader trader = MarketOrder.traderFor(master, type);
-            if (!hasStandingOrder(master, type) && trader.com.size() >= lotSize(access, type)
-                    && (!healthy || privateStocksLow(access, type))) {
-                // Undercut competing offers to put idle treasury goods back into circulation.
-                long discount = access.dir.getCheapestTraderOf(type, false) == null
-                        ? 0 : access.dir.getAveragePriceOf(type) / 10;
-                trader.setSellCond(sellCondition(discount));
-                trader.setSellValues(trader.com.size(), discount);
-                trader.sellEnabled(true);
-                offerDiscounts.put(type, discount);
-                return EconomyAutopilot.Status.SELLING_STOCK;
+        // Use the single action for the largest price movement the treasury can counter.
+        ComType[] ranked = GOODS.clone();
+        Arrays.sort(ranked, (a, b) -> Double.compare(Math.abs(prices.pressure(b)), Math.abs(prices.pressure(a))));
+        for (ComType type : ranked) {
+            double pressure = prices.pressure(type);
+            if (pressure == 0) break;
+            if (pressure > 0) {
+                if (offerStock(access, type, true)) return EconomyAutopilot.Status.SELLING_STOCK;
+            } else {
+                long shipping = access.dir.getAveragePriceOf(ComType.TRANSPORTATION);
+                EconomyAutopilot.Status buy = buySurplus(access, type, true, shipping);
+                if (buy != null) return buy;
             }
-        }
-
-        if (bidType != null) return null;
-        long shipping = access.dir.getAveragePriceOf(ComType.TRANSPORTATION);
-        for (ComType type : GOODS) {
-            Trader buyer = MarketOrder.traderFor(master, type);
-            int lot = lotSize(access, type);
-            long limit = affordableUnitPrice(access, lot, shipping);
-            if (limit < 1 || hasStandingOrder(master, type) || buyer.com.size() >= lot) continue;
-            Trader seller = surplusSeller(access, type, lot, healthy);
-            if (seller == null) continue;
-            long market = access.dir.getAveragePriceOf(type);
-            // BELOW is a strict comparison. A one-cent-higher trigger includes the affordable price.
-            long trigger = limit + 1;
-            if (!MarketOrder.matches(MarketOrder.BELOW, market, trigger)) {
-                buyer.setBuyCond(MarketOrder.BELOW);
-                buyer.setBuyValues(lot, trigger);
-                bidType = type;
-                bidTrigger = trigger;
-                buyer.buyEnabled(true);
-                return EconomyAutopilot.Status.PLACING_BUY_ORDER;
-            }
-            if (buyLot(access, seller, buyer, lot, limit, shipping)) return EconomyAutopilot.Status.BUYING_STOCK;
         }
         return null;
     }
 
-    EconomyAutopilot.Status reviewPendingBuy(Access access, boolean healthy) {
+    EconomyAutopilot.Status review(Access access, boolean healthy, AutopilotPricePolicy prices) {
+        if (!access.sim.specialPriority.isEmpty() || access.taxAccount.freeze) return null;
+        // Goods inside the price band and stalled markets use the usual inventory policy.
+        for (ComType type : GOODS) {
+            if (healthy && (prices.pressure(type) != 0 || !privateStocksLow(access, type))) continue;
+            if (offerStock(access, type, false)) return EconomyAutopilot.Status.SELLING_STOCK;
+        }
+        long shipping = access.dir.getAveragePriceOf(ComType.TRANSPORTATION);
+        for (ComType type : GOODS) {
+            if (healthy && prices.pressure(type) != 0) continue;
+            EconomyAutopilot.Status buy = buySurplus(access, type, healthy, shipping);
+            if (buy != null) return buy;
+        }
+        return null;
+    }
+
+    private boolean offerStock(Access access, ComType type, boolean risingPrice) {
+        Trader treasury = MarketOrder.traderFor(access.master, type);
+        if (hasStandingOrder(access.master, type) || treasury.com.size() < lotSize(access, type)) return false;
+        long discount = 0;
+        if (access.dir.getCheapestTraderOf(type, false) != null) {
+            long market = MarketOrder.marketBasePrice(treasury, type);
+            // Release supply with a modest discount during a price rise. A shortage can use the usual 10%.
+            discount = risingPrice ? market / 20 : market / 10;
+        }
+        treasury.setSellCond(sellCondition(discount));
+        treasury.setSellValues(treasury.com.size(), discount);
+        treasury.sellEnabled(true);
+        offerDiscounts.put(type, discount);
+        return true;
+    }
+
+    private EconomyAutopilot.Status buySurplus(Access access, ComType type, boolean healthy, long shipping) {
+        if (bidType != null || hasStandingOrder(access.master, type)) return null;
+        Trader buyer = MarketOrder.traderFor(access.master, type);
+        int lot = lotSize(access, type);
+        long limit = affordableUnitPrice(access, lot, shipping);
+        if (limit < 1 || buyer.com.size() >= lot) return null;
+        Trader seller = surplusSeller(access, type, lot, healthy);
+        if (seller == null) return null;
+        long market = access.dir.getAveragePriceOf(type);
+        // BELOW is a strict comparison. A one-cent-higher trigger includes the affordable price.
+        long trigger = limit + 1;
+        if (!MarketOrder.matches(MarketOrder.BELOW, market, trigger)) {
+            buyer.setBuyCond(MarketOrder.BELOW);
+            buyer.setBuyValues(lot, trigger);
+            bidType = type;
+            bidTrigger = trigger;
+            buyer.buyEnabled(true);
+            return EconomyAutopilot.Status.PLACING_BUY_ORDER;
+        }
+        if (buyLot(access, seller, buyer, lot, limit, shipping)) return EconomyAutopilot.Status.BUYING_STOCK;
+        return null;
+    }
+
+    EconomyAutopilot.Status reviewPendingBuy(Access access, boolean healthy, AutopilotPricePolicy prices) {
         if (bidType == null) return null;
         if (!isOurBid(access.master)) {
             bidType = null;
@@ -73,7 +105,8 @@ final class AutopilotTradePolicy {
         long limit = affordableUnitPrice(access, lot, shipping);
         Trader seller = surplusSeller(access, bidType, lot, healthy);
         if (access.taxAccount.freeze || !access.sim.specialPriority.empty() || buyer.com.size() >= lot
-                || hasSellOrder(access.master, bidType) || seller == null || limit < bidTrigger - 1) {
+                || hasSellOrder(access.master, bidType) || seller == null || limit < bidTrigger - 1
+                || (healthy && prices.pressure(bidType) > 0)) {
             cancelOwnedBuys(access);
             return EconomyAutopilot.Status.CANCELLING_TRADE;
         }
@@ -125,14 +158,18 @@ final class AutopilotTradePolicy {
     }
 
     /** Leave manual standing orders in place, including a player's replacement for our offer. */
-    boolean cancelFilledOffer(Access access) {
+    boolean cancelInvalidOffer(Access access, boolean healthy, AutopilotPricePolicy prices) {
         MasterTrader master = access.master;
         for (ComType type : GOODS) {
             Long discount = offerDiscounts.get(type);
             if (discount == null) continue;
             if (!isOurOffer(master, type, discount)) {
                 offerDiscounts.remove(type);
-            } else if (MarketOrder.traderFor(master, type).com.size() < lotSize(access, type)) {
+                continue;
+            }
+            double pressure = prices.pressure(type);
+            boolean needsSupply = !healthy || pressure > 0 || (pressure == 0 && privateStocksLow(access, type));
+            if (!needsSupply || MarketOrder.traderFor(master, type).com.size() < lotSize(access, type)) {
                 MarketOrder.traderFor(master, type).sellEnabled(false);
                 offerDiscounts.remove(type);
                 return true;

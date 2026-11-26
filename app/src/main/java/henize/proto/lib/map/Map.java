@@ -30,6 +30,7 @@ import static henize.proto.lib.map.ArrivalPoint.START;
  */
 
 public class Map implements ArrivalNotficationListener, Serializable {
+    private static final long serialVersionUID = -4478490471190518276L;
     byte[][] map;
     public boolean[][] update;
     Access access;
@@ -246,6 +247,28 @@ public class Map implements ArrivalNotficationListener, Serializable {
             }
         }
         return true;
+    }
+
+    /** A running economy can fill the entire labor district. Try each site at most once. */
+    public Coordinate tryGenerateLaborAddress() {
+        Coordinate selected = null;
+        Coordinate candidate = new Coordinate(0, 0);
+        int available = 0;
+        int firstX = Math.max(0, access.config.Lxreg);
+        int lastX = Math.min(width - 1, access.config.L_xreg);
+        int lastY = Math.min(height - 1, access.config.L_yreg);
+        for (int y = Math.max(0, access.config.Lyreg); y <= lastY; y++) {
+            for (int x = firstX; x <= lastX; x++) {
+                if (map[x][y] != 0) continue;
+                candidate.x = x;
+                candidate.y = y;
+                if (!onlyAdjacent(candidate, true)) continue;
+                if (access.config.sequencial) return GenerateAddress(1, candidate);
+                // Reservoir sampling gives each legal site an equal chance.
+                if (rnd.nextInt(++available) == 0) selected = new Coordinate(x, y);
+            }
+        }
+        return selected == null ? null : GenerateAddress(1, selected);
     }
     public void RemoveAddress(Coordinate c, int key)
     {

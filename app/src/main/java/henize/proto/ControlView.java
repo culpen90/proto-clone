@@ -156,8 +156,6 @@ public class ControlView extends RelativeLayout {
                 return R.string.economy_autopilot_adjusting_tax_rates;
             case STABILIZING_PRICES:
                 return R.string.economy_autopilot_stabilizing_prices;
-            case RESTORING_MARKET_PRICES:
-                return R.string.economy_autopilot_restoring_market_prices;
             case LIMITED:
                 return R.string.economy_autopilot_limited;
             case MONITORING:
